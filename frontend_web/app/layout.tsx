@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'SpendPilot - UPI Spending Assistant',
-  description: 'Your agentic spending assistant for Indian Gen-Z students',
+  title: 'UPISensei - UPI Spending Assistant',
+  description: 'Your agentic spending assistant for Indian Gen-Z students!',
   generator: 'v0.app',
   icons: {
     icon: [
