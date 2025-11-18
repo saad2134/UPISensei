@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Upload, MessageCircle, Loader } from 'lucide-react'
+import { Send, Upload, Lightbulb, Loader } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -17,7 +17,7 @@ export default function AIAgentChatbot() {
     {
       id: '1',
       type: 'bot',
-      content: 'Hey! I\'m your UPISensei AI Agent. Upload your UPI transaction PDF and I\'ll analyze your spending patterns, find savings opportunities, and give you personalized financial advice.',
+      content: 'Hey! I\'m your UPISensei AI Guide. Upload your UPI transaction PDF and I\'ll analyze your spending patterns, find savings opportunities, and give you personalized financial advice.',
       timestamp: new Date(),
     },
   ])
@@ -193,7 +193,7 @@ export default function AIAgentChatbot() {
       {/* Features Grid */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4 bg-card border border-border rounded-lg hover:shadow-md transition-all animate-slide-in">
-          <MessageCircle className="w-5 h-5 text-primary mb-2" />
+          <Lightbulb className="w-5 h-5 text-primary mb-2" strokeWidth={1.5} />
           <p className="font-bold text-xs text-foreground">Smart Analysis</p>
           <p className="text-xs text-muted-foreground mt-1">
             Get AI-powered spending insights

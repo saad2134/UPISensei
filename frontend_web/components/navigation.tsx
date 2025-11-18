@@ -1,6 +1,6 @@
 "use client"
 
-import { Wallet, Brain, Zap, BarChart3, Scan } from 'lucide-react'
+import { Home, Scan, User } from 'lucide-react'
 import { useState } from 'react'
 
 interface NavigationProps {
@@ -13,10 +13,8 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
   const [isSupported, setIsSupported] = useState(true)
 
   const tabs = [
-    { id: 'feed', label: 'Feed', icon: Wallet },
-    { id: 'insights', label: 'Insights', icon: BarChart3 },
-    { id: 'challenges', label: 'Challenges', icon: Zap },
-    { id: 'chatbot', label: 'AI Agent', icon: Brain },
+    { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'profile', label: 'Profile', icon: User },
   ]
 
   const handleScannerClick = async () => {
@@ -44,31 +42,23 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
     <>
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border backdrop-blur-md">
         <div className="max-w-4xl mx-auto flex items-center justify-around">
-          {/* First two tabs */}
-          {tabs.slice(0, 2).map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
-                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {isActive && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />
-                )}
-                <Icon className="w-6 h-6 mb-1" />
-                <span className="text-xs font-bold">{tab.label}</span>
-              </button>
-            )
-          })}
+          {/* Dashboard Tab */}
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
+              activeTab === 'dashboard' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {activeTab === 'dashboard' && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />
+            )}
+            <Home className="w-6 h-6 mb-1" />
+            <span className="text-xs font-bold">Dashboard</span>
+          </button>
 
           <button
             onClick={handleScannerClick}
-            className="hidden sm:flex flex-col items-center justify-center -translate-y-6 relative group"
+            className="flex flex-col items-center justify-center -translate-y-6 relative group"
             aria-label="Scan QR code"
           >
             <div className="w-16 h-16 bg-gradient-to-br from-primary via-accent to-secondary rounded-full flex items-center justify-center shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95">
@@ -80,32 +70,25 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
             <div className="absolute inset-0 w-16 h-16 rounded-full border-2 border-primary opacity-0 group-hover:opacity-100 animate-pulse" style={{animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'}} />
           </button>
 
-          {/* Last two tabs */}
-          {tabs.slice(2, 4).map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
-                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {isActive && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />
-                )}
-                <Icon className="w-6 h-6 mb-1" />
-                <span className="text-xs font-bold">{tab.label}</span>
-              </button>
-            )
-          })}
+          {/* Profile Tab */}
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
+              activeTab === 'profile' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {activeTab === 'profile' && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />
+            )}
+            <User className="w-6 h-6 mb-1" />
+            <span className="text-xs font-bold">Profile</span>
+          </button>
         </div>
       </nav>
 
+      {/* Scanner Modal */}
       {scannerOpen && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center sm:hidden">
+        <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center">
           {/* Header */}
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent">
             <h2 className="text-white text-lg font-bold">Scan QR Code</h2>

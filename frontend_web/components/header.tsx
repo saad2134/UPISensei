@@ -1,4 +1,4 @@
-import { Zap, Bell } from 'lucide-react'
+import { Lightbulb, Bell } from 'lucide-react'
 
 export default function Header() {
   return (
@@ -7,11 +7,11 @@ export default function Header() {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-            <Zap className="w-6 h-6 text-primary-foreground" />
+            <Lightbulb className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
             <h1 className="font-black text-lg tracking-tight text-foreground">UPISensei</h1>
-            <p className="text-xs text-muted-foreground">Your Money Moves</p>
+            <p className="text-xs text-muted-foreground">Financial Wisdom</p>
           </div>
         </div>
 
