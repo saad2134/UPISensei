@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 
 export interface User {
   id: string
@@ -30,16 +30,33 @@ const DEMO_ACCOUNT = {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('auth_user')
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser)
+        setUser(parsedUser)
+      } catch (error) {
+        console.error('Failed to parse stored user:', error)
+        localStorage.removeItem('auth_user')
+      }
+    }
+    setIsHydrated(true)
+  }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     // Demo login - accepts demo credentials
     if (email === DEMO_ACCOUNT.email && password === DEMO_ACCOUNT.password) {
-      setUser({
+      const newUser = {
         id: DEMO_ACCOUNT.id,
         email: DEMO_ACCOUNT.email,
         name: DEMO_ACCOUNT.name,
         phone: DEMO_ACCOUNT.phone,
-      })
+      }
+      setUser(newUser)
+      localStorage.setItem('auth_user', JSON.stringify(newUser))
       return true
     }
     return false
@@ -48,12 +65,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (email: string, password: string, name: string, phone: string): Promise<boolean> => {
     // Simple signup - creates a new user
     if (email && password && name && phone) {
-      setUser({
+      const newUser = {
         id: `user_${Date.now()}`,
         email,
         name,
         phone,
-      })
+      }
+      setUser(newUser)
+      localStorage.setItem('auth_user', JSON.stringify(newUser))
       return true
     }
     return false
@@ -61,6 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null)
+    localStorage.removeItem('auth_user')
+  }
+
+  if (!isHydrated) {
+    return <div /> // Silent loading state
   }
 
   return (
