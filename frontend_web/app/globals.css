@@ -223,3 +223,38 @@
       background-size: 200% 200%;
     }
 }
+
+
+
+
+.markdown-readable {
+  line-height: 1.35; /* Tight but readable */
+}
+
+/* -------- Paragraph spacing -------- */
+.markdown-readable p {
+  margin-top: 0;
+  margin-bottom: 0.75rem; /* Larger gap between paragraphs */
+}
+
+/* -------- Line break spacing ( <br> ) -------- */
+.markdown-readable br {
+  display: block;
+  margin-bottom: 0.35rem; /* Smaller gap than paragraphs */
+  content: "";
+}
+
+/* -------- Lists -------- */
+.markdown-readable li {
+  margin: 0.25rem 0;
+  line-height: 1.35;
+}
+
+/* -------- Headings -------- */
+.markdown-readable h1,
+.markdown-readable h2,
+.markdown-readable h3,
+.markdown-readable h4 {
+  margin: 1rem 0 0.5rem 0;
+  line-height: 1.3;
+}

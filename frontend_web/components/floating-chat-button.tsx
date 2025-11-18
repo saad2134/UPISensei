@@ -34,10 +34,11 @@ export default function FloatingChatButton() {
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
           <SheetHeader className="border-b border-border/50 bg-gradient-to-r from-primary/10 to-accent/10 p-4">
             <SheetTitle className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center">
+              <div className="flex items-center justify-center w-10 h-10 rounded-md bg-primary/10">
                 <Lightbulb className="w-6 h-6 text-primary" strokeWidth={1.5} />
               </div>
-              <span>UPISensei Assistant</span>
+              <span>UPISensei Agent
+                <p className="text-xs text-muted-foreground">Your financial wisdom guide!</p></span>
             </SheetTitle>
           </SheetHeader>
 
