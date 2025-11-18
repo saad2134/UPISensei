@@ -1,7 +1,6 @@
 <h1 align="center">💵 UPISensei – AI-Driven UPI Spend Intelligence</h1>
 
-> <p align="center">🚨 <strong>An autonomous personal finance agent that understands, analyses, and explains UPI transactions automatically, transforming raw bank statement data into actionable financial insights using agentic AI.
-"</strong></p>
+> <p align="center">🚨 <strong>An autonomous personal finance agent that understands, analyses, and explains UPI transactions automatically, transforming raw bank statement data into actionable financial insights using agentic AI.</strong></p>
 
 <div align="center">
 
