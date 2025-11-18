@@ -23,8 +23,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const DEMO_ACCOUNT = {
   email: 'demo@upisensei.com',
   password: 'demo123',
-  name: 'Alex Johnson',
-  phone: '+91 98765 43210',
+  name: 'Saad Ahmed',
+  phone: '+91 9876543210',
   id: 'user_001'
 }
 

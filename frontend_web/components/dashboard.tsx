@@ -26,7 +26,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted pb-24">
       <Header />
       
-      <main className="max-w-4xl mx-auto px-4 pt-4">
+      <main className="max-w-4xl mx-auto px-4 pt-4 pb-8">
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             {/* Spending Stats Card */}

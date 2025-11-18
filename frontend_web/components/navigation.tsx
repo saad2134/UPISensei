@@ -21,12 +21,12 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
     try {
       const devices = await navigator.mediaDevices.enumerateDevices()
       const hasCamera = devices.some(device => device.kind === 'videoinput')
-      
+
       if (!hasCamera) {
         setIsSupported(false)
         return
       }
-      
+
       setScannerOpen(true)
     } catch (error) {
       console.log("[v0] Camera access error:", error)
@@ -45,9 +45,8 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
           {/* Dashboard Tab */}
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
-              activeTab === 'dashboard' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${activeTab === 'dashboard' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
             {activeTab === 'dashboard' && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />
@@ -61,21 +60,20 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
             className="flex flex-col items-center justify-center -translate-y-6 relative group"
             aria-label="Scan QR code"
           >
-            <div className="w-16 h-16 bg-gradient-to-br from-primary via-accent to-secondary rounded-full flex items-center justify-center shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95">
+            <div className="w-16 h-16 bg-gradient-to-br from-primary via-accent to-secondary rounded-md flex items-center justify-center shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95">
               <Scan className="w-7 h-7 text-white" />
             </div>
             <span className="text-xs font-bold mt-1 text-primary">Scan</span>
-            
+
             {/* Pulsing glow effect */}
-            <div className="absolute inset-0 w-16 h-16 rounded-full border-2 border-primary opacity-0 group-hover:opacity-100 animate-pulse" style={{animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'}} />
+            <div className="absolute inset-0 w-16 h-16 rounded-md border-2 border-primary opacity-0 group-hover:opacity-100 animate-pulse" style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
           </button>
 
           {/* Profile Tab */}
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
-              activeTab === 'profile' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${activeTab === 'profile' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
             {activeTab === 'profile' && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />
@@ -113,7 +111,7 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
                 setIsSupported(false)
               }}
             />
-            
+
             {/* Corner brackets */}
             <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-secondary" />
             <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-secondary" />
@@ -121,7 +119,7 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
             <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-secondary" />
 
             {/* Scanning line animation */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-b from-secondary via-primary to-transparent animate-pulse" style={{animation: 'slideDown 2s ease-in-out infinite'}} />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-b from-secondary via-primary to-transparent animate-pulse" style={{ animation: 'slideDown 2s ease-in-out infinite' }} />
           </div>
 
           {/* Instructions */}

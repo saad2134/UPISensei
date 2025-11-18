@@ -20,13 +20,13 @@ export default function LoginPage() {
     setLoading(true)
 
     const success = await login(email, password)
-    
+
     if (success) {
       router.push('/')
     } else {
       setError('Invalid email or password. Demo: demo@upisensei.com / demo123')
     }
-    
+
     setLoading(false)
   }
 
@@ -35,9 +35,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md pt-8 pb-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary via-accent to-secondary mx-auto mb-4 flex items-center justify-center">
-            <span className="text-5xl">💡</span>
-          </div>
+          <img
+            src="/icon.svg"
+            alt="Icon"
+            className="w-20 h-20 mx-auto mb-4"
+          />
+
           <h1 className="text-3xl font-bold text-foreground mb-2">UPISensei</h1>
           <p className="text-muted-foreground">Your Financial Wisdom Guide</p>
         </div>

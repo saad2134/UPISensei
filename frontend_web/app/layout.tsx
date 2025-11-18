@@ -26,7 +26,7 @@ export const metadata: Metadata = {
         type: 'image/svg+xml',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: '/icon-dark-32x32.png',
   },
 }
 
@@ -37,6 +37,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+      </head>
       <body className={`font-sans antialiased`}>
         <AuthProvider>
           {children}

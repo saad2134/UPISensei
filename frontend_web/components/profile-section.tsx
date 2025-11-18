@@ -94,7 +94,7 @@ export default function ProfileSection() {
         <div className="space-y-3">
           <Button
             onClick={handleLogout}
-            className="w-full py-2 bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground font-semibold rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+            className="w-full py-2 bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
           >
             <LogOut className="w-4 h-4" />
             Logout
@@ -111,7 +111,7 @@ export default function ProfileSection() {
             <p className="text-xs text-muted-foreground mt-1">Transactions</p>
           </div>
           <div className="text-center p-4 rounded-lg bg-secondary/5 border border-secondary/20">
-            <p className="text-2xl font-bold text-secondary">2,450</p>
+            <p className="text-2xl font-bold text-secondary">₹ 2,450</p>
             <p className="text-xs text-muted-foreground mt-1">Total Spent</p>
           </div>
           <div className="text-center p-4 rounded-lg bg-accent/5 border border-accent/20">

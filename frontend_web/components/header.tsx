@@ -6,9 +6,13 @@ export default function Header() {
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-            <Lightbulb className="w-6 h-6 text-primary-foreground" />
-          </div>
+          <img
+            src="/icon.svg"
+            alt="Icon"
+            className="w-10 h-10 mx-auto"
+          />
+
+
           <div>
             <h1 className="font-black text-lg tracking-tight text-foreground">UPISensei</h1>
             <p className="text-xs text-muted-foreground">Financial Wisdom</p>
