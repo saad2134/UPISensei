@@ -1,10 +1,20 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import TransactionCard from './transaction-card'
 
+interface Transaction {
+  id: number
+  type: 'sent' | 'received'
+  name: string
+  emoji: string
+  amount: number
+  time: string
+  category: string
+}
+
 export default function TransactionHistory() {
-  const [transactions] = useState([
+  const [transactions, setTransactions] = useState<Transaction[]>([
     {
       id: 1,
       type: 'sent',
@@ -51,6 +61,18 @@ export default function TransactionHistory() {
       category: 'Shopping',
     },
   ])
+
+  useEffect(() => {
+    const savedTransactions = localStorage.getItem('scan_transactions')
+    if (savedTransactions) {
+      try {
+        const parsed = JSON.parse(savedTransactions)
+        setTransactions([...parsed, ...transactions])
+      } catch (error) {
+        console.error('Failed to parse saved transactions:', error)
+      }
+    }
+  }, [])
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-lg">
