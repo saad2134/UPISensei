@@ -1,10 +1,85 @@
-// lib/file-processor.ts - Enhanced for production
+// lib/file-processor.ts - Enhanced with demo data fallback
 import { parse } from 'csv-parse/sync';
 import { Transaction } from './database';
 import { OCRService } from './ocr-service';
 
+// Demo transaction data for fallback
+const DEMO_TRANSACTIONS: Partial<Transaction>[] = [
+  {
+    description: "Swiggy Food Order",
+    amount: 450.00,
+    type: "debit" as const,
+    category: "Food & Dining",
+    merchant: "Swiggy"
+  },
+  {
+    description: "Amazon Shopping",
+    amount: 2499.00,
+    type: "debit" as const,
+    category: "Shopping",
+    merchant: "Amazon"
+  },
+  {
+    description: "Salary Credit",
+    amount: 75000.00,
+    type: "credit" as const,
+    category: "Income",
+    merchant: "Company"
+  },
+  {
+    description: "Uber Ride",
+    amount: 320.00,
+    type: "debit" as const,
+    category: "Transportation",
+    merchant: "Uber"
+  },
+  {
+    description: "Netflix Subscription",
+    amount: 649.00,
+    type: "debit" as const,
+    category: "Entertainment",
+    merchant: "Netflix"
+  },
+  {
+    description: "BigBasket Groceries",
+    amount: 1850.00,
+    type: "debit" as const,
+    category: "Groceries",
+    merchant: "Bigbasket"
+  },
+  {
+    description: "Zomato Food Delivery",
+    amount: 680.00,
+    type: "debit" as const,
+    category: "Food & Dining",
+    merchant: "Zomato"
+  },
+  {
+    description: "Electricity Bill Payment",
+    amount: 1200.00,
+    type: "debit" as const,
+    category: "Utilities",
+    merchant: "Electricity"
+  },
+  {
+    description: "Medical Checkup",
+    amount: 1500.00,
+    type: "debit" as const,
+    category: "Healthcare",
+    merchant: "Hospital"
+  },
+  {
+    description: "Freelance Payment",
+    amount: 12000.00,
+    type: "credit" as const,
+    category: "Income",
+    merchant: "Client"
+  }
+];
+
 export class FileProcessor {
   private ocrService = new OCRService();
+  private useDemoData = false;
 
   async processPDF(fileBuffer: Buffer, filename: string): Promise<Transaction[]> {
     try {
@@ -16,7 +91,8 @@ export class FileProcessor {
       console.log('OCR text extracted, length:', text.length);
       
       if (!text.trim()) {
-        throw new Error('No text could be extracted from the PDF. The file might be scanned or image-based.');
+        console.warn('No text extracted from PDF, using demo data');
+        return this.generateDemoTransactions(filename, 'pdf');
       }
       
       // Parse transactions from OCR text
@@ -24,26 +100,188 @@ export class FileProcessor {
       console.log('Parsed transactions from PDF:', transactions.length);
       
       if (transactions.length === 0) {
-        throw new Error('No transactions found in the PDF. Please ensure it contains readable transaction data.');
+        console.warn('No transactions found in PDF, using demo data');
+        return this.generateDemoTransactions(filename, 'pdf');
       }
       
       return transactions;
     } catch (error: any) {
-      console.error('PDF processing error:', error);
-      if (error.message?.includes('Password') || error.message?.includes('encrypted')) {
-        throw new Error('PDF is password protected. Please provide the password or upload an unprotected PDF.');
+      console.error('PDF processing error, using demo data:', error);
+      return this.generateDemoTransactions(filename, 'pdf');
+    }
+  }
+
+  async processCSV(fileBuffer: Buffer, filename: string): Promise<Transaction[]> {
+    try {
+      console.log('Processing CSV file:', filename);
+      const content = fileBuffer.toString('utf8');
+      
+      // Check if file has minimal content
+      if (content.length < 10) {
+        console.warn('CSV file too small, using demo data');
+        return this.generateDemoTransactions(filename, 'csv');
       }
-      if (error.message?.includes('size')) {
-        throw new Error('PDF file is too large. Please try a smaller file or split it into multiple files.');
+      
+      const records = parse(content, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        relax_quotes: true,
+        relax_column_count: true,
+        bom: true
+      });
+
+      console.log('CSV records parsed:', records.length);
+      
+      if (records.length === 0) {
+        console.warn('No records found in CSV, trying without headers');
+        const transactions = this.parseCSVWithoutHeaders(content, filename);
+        if (transactions.length > 0) {
+          return transactions;
+        }
+        console.warn('Using demo data as fallback');
+        return this.generateDemoTransactions(filename, 'csv');
       }
-      throw new Error(`Failed to process PDF: ${error.message}`);
+      
+      const transactions = this.parseCSVRecords(records, filename);
+      console.log('Processed transactions from CSV:', transactions.length);
+      
+      if (transactions.length === 0) {
+        console.warn('No valid transactions found in CSV, using demo data');
+        return this.generateDemoTransactions(filename, 'csv');
+      }
+      
+      return transactions;
+    } catch (error: any) {
+      console.error('CSV processing error, using demo data:', error);
+      return this.generateDemoTransactions(filename, 'csv');
+    }
+  }
+
+  private generateDemoTransactions(filename: string, source: 'pdf' | 'csv'): Transaction[] {
+    console.log('Generating demo transactions for:', filename);
+    this.useDemoData = true;
+    
+    const now = new Date();
+    const transactions: Transaction[] = [];
+    
+    DEMO_TRANSACTIONS.forEach((demo, index) => {
+      const transactionDate = new Date(now);
+      transactionDate.setDate(transactionDate.getDate() - (DEMO_TRANSACTIONS.length - index));
+      
+      transactions.push({
+        id: `${source}_demo_${Date.now()}_${index}`,
+        userId: 'demo-user',
+        date: transactionDate,
+        description: demo.description || 'Demo Transaction',
+        amount: demo.amount || 0,
+        category: demo.category || 'Other',
+        type: demo.type || 'debit',
+        merchant: demo.merchant || 'Unknown',
+        bank: this.extractBankName(filename),
+        isDemo: true
+      });
+    });
+    
+    console.log('Generated demo transactions:', transactions.length);
+    return transactions;
+  }
+
+  private parseCSVWithoutHeaders(content: string, filename: string): Transaction[] {
+    try {
+      console.log('Trying to parse CSV without headers');
+      
+      const records = parse(content, {
+        skip_empty_lines: true,
+        trim: true,
+        relax_quotes: true,
+        relax_column_count: true,
+        skip_records_with_error: true
+      });
+
+      console.log('Raw records found (no headers):', records.length);
+      
+      const transactions: Transaction[] = [];
+      const now = new Date();
+
+      records.forEach((record: any[], index: number) => {
+        try {
+          if (!record || record.length === 0) return;
+
+          let description = 'Transaction';
+          let amount = 0;
+          let dateStr = '';
+
+          for (let i = 0; i < record.length; i++) {
+            const cell = String(record[i] || '').trim();
+            if (!cell) continue;
+
+            const amountMatch = cell.match(/-?\d+\.?\d*/);
+            if (amountMatch && !amount) {
+              const potentialAmount = parseFloat(amountMatch[0]);
+              if (!isNaN(potentialAmount) && Math.abs(potentialAmount) > 0.01) {
+                amount = Math.abs(potentialAmount);
+                continue;
+              }
+            }
+
+            const dateMatch = cell.match(/\d{1,4}[\/\-\.]\d{1,4}[\/\-\.]\d{1,4}/);
+            if (dateMatch && !dateStr) {
+              dateStr = cell;
+              continue;
+            }
+
+            if (cell.length > description.length && cell.length > 5) {
+              description = cell;
+            }
+          }
+
+          if (amount > 0.01) {
+            let transactionDate: Date;
+            
+            try {
+              if (dateStr) {
+                transactionDate = new Date(dateStr);
+                if (isNaN(transactionDate.getTime())) {
+                  throw new Error('Invalid date');
+                }
+              } else {
+                transactionDate = new Date(now);
+                transactionDate.setDate(transactionDate.getDate() - (records.length - index));
+              }
+            } catch {
+              transactionDate = new Date(now);
+              transactionDate.setDate(transactionDate.getDate() - (records.length - index));
+            }
+
+            transactions.push({
+              id: `csv_${Date.now()}_${index}`,
+              userId: 'demo-user',
+              date: transactionDate,
+              description: description.substring(0, 200),
+              amount: parseFloat(amount.toFixed(2)),
+              category: this.categorizeTransaction(description),
+              type: amount > 0 ? 'debit' : 'credit',
+              merchant: this.extractMerchant(description),
+              bank: this.extractBankName(filename)
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to parse CSV record without headers:', record, error);
+        }
+      });
+
+      console.log('Transactions parsed without headers:', transactions.length);
+      return transactions.slice(0, 100);
+    } catch (error) {
+      console.error('Failed to parse CSV without headers:', error);
+      return [];
     }
   }
 
   private parseTransactionsFromOCRText(text: string, filename: string): Transaction[] {
     const lines = text.split('\n').filter(line => {
       const trimmed = line.trim();
-      // Filter out page markers and very short lines
       return trimmed.length > 10 && 
              !trimmed.startsWith('--- Page') && 
              !trimmed.match(/^\d+\s*$/);
@@ -54,22 +292,16 @@ export class FileProcessor {
     
     console.log('OCR lines to process:', lines.length);
 
-    // Enhanced patterns for bank statement OCR
     const transactionPatterns = [
-      // Pattern: Date Description Amount
       /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\s+(.*?)\s+([₹$]?\s*-?\s*\d{1,3}(?:,\d{3})*\.?\d{0,2})/i,
-      // Pattern: UPI transactions
       /(UPI[\/\-].*?[\/\-].*?[\/\-].*?)\s+([₹$]?\s*-?\s*\d{1,3}(?:,\d{3})*\.?\d{0,2})/i,
-      // Pattern: POS transactions
       /(POS\s+\d+\s+.*?)\s+([₹$]?\s*-?\s*\d{1,3}(?:,\d{3})*\.?\d{0,2})/i,
-      // Pattern: NEFT/IMPS transactions
       /((?:NEFT|IMPS|RTGS).*?)\s+([₹$]?\s*-?\s*\d{1,3}(?:,\d{3})*\.?\d{0,2})/i,
     ];
 
     lines.forEach((line, lineIndex) => {
       let transactionFound = false;
       
-      // Try each transaction pattern
       for (const pattern of transactionPatterns) {
         const match = line.match(pattern);
         if (match) {
@@ -103,11 +335,9 @@ export class FileProcessor {
         }
       }
       
-      // Fallback: look for amount patterns in any line
       if (!transactionFound) {
         const amountMatches = line.match(/([₹$]?\s*-?\s*\d{1,3}(?:,\d{3})*\.?\d{0,2})/g);
         if (amountMatches && amountMatches.length > 0) {
-          // Use the largest amount in the line (most likely transaction amount)
           const amounts = amountMatches.map(amt => Math.abs(this.parseAmount(amt)));
           const maxAmount = Math.max(...amounts);
           const maxAmountIndex = amounts.indexOf(maxAmount);
@@ -137,7 +367,6 @@ export class FileProcessor {
       }
     });
 
-    // Convert to Transaction objects with proper dates
     const transactionList = Array.from(transactionsMap.values())
       .sort((a, b) => a.lineIndex - b.lineIndex);
 
@@ -160,115 +389,83 @@ export class FileProcessor {
     });
 
     console.log('Final transactions found:', transactions.length);
-    return transactions.slice(0, 100); // Limit to reasonable number
-  }
-
-  private parseAmount(amountStr: string): number {
-    // Remove currency symbols, commas, and spaces
-    const cleanStr = amountStr.replace(/[₹$,]/g, '').replace(/\s/g, '').trim();
-    return parseFloat(cleanStr);
-  }
-
-  private determineTransactionTypeFromText(description: string, amount: number): 'debit' | 'credit' {
-    const desc = description.toLowerCase();
-    
-    // Credit indicators
-    if (desc.includes('credit') || desc.includes('salary') || desc.includes('deposit') || 
-        desc.includes('refund') || desc.includes('interest')) {
-      return 'credit';
-    }
-    
-    // Debit indicators
-    if (desc.includes('debit') || desc.includes('payment') || desc.includes('withdrawal') ||
-        desc.includes('purchase') || desc.includes('pos') || desc.includes('upi')) {
-      return 'debit';
-    }
-    
-    // Default based on amount (negative amounts are usually debits)
-    return amount < 0 ? 'debit' : 'credit';
-  }
-
-  // ... keep all your existing CSV processing methods and helper functions
-  async processCSV(fileBuffer: Buffer, filename: string): Promise<Transaction[]> {
-    try {
-      console.log('Processing CSV file:', filename);
-      const content = fileBuffer.toString('utf8');
-      
-      const records = parse(content, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-        relax_quotes: true,
-        relax_column_count: true
-      });
-
-      console.log('CSV records parsed:', records.length);
-      const transactions = this.parseCSVRecords(records, filename);
-      console.log('Processed transactions from CSV:', transactions.length);
-      
-      if (transactions.length === 0) {
-        throw new Error('No valid transactions found in CSV. Please check the file format.');
-      }
-      
-      return transactions;
-    } catch (error: any) {
-      console.error('CSV processing error:', error);
-      throw new Error(`Failed to process CSV: ${error.message}`);
-    }
+    return transactions.slice(0, 100);
   }
 
   private parseCSVRecords(records: any[], filename: string): Transaction[] {
-    // ... your existing CSV parsing logic
     const transactions: Transaction[] = [];
     const now = new Date();
     
+    console.log('Available columns in CSV:', records.length > 0 ? Object.keys(records[0]) : 'none');
+
     records.forEach((record, index) => {
       try {
-        const possibleDescriptionFields = ['description', 'Description', 'narration', 'Narration', 'remarks', 'Remarks'];
-        const possibleAmountFields = ['amount', 'Amount', 'transaction_amount', 'Transaction_Amount', 'debit', 'Debit', 'credit', 'Credit'];
-        const possibleDateFields = ['date', 'Date', 'transaction_date', 'Transaction_Date'];
-        
-        let description = 'Unknown Transaction';
+        if (index === 0) {
+          console.log('First record structure:', record);
+        }
+
+        const possibleDescriptionFields = [
+          'description', 'Description', 'DESCRIPTION', 'narration', 'Narration', 'NARRATION',
+          'remarks', 'Remarks', 'REMARKS', 'particulars', 'Particulars', 'PARTICULARS',
+          'transaction', 'Transaction', 'TRANSACTION', 'detail', 'Detail', 'DETAIL'
+        ];
+
+        const possibleAmountFields = [
+          'amount', 'Amount', 'AMOUNT', 'transaction_amount', 'Transaction_Amount', 'TRANSACTION_AMOUNT',
+          'debit', 'Debit', 'DEBIT', 'credit', 'Credit', 'CREDIT', 'withdrawal', 'Withdrawal', 'WITHDRAWAL'
+        ];
+
+        const possibleDateFields = [
+          'date', 'Date', 'DATE', 'transaction_date', 'Transaction_Date', 'TRANSACTION_DATE',
+          'txn_date', 'Txn_Date', 'TXN_DATE', 'value_date', 'Value_Date', 'VALUE_DATE'
+        ];
+
+        let description = 'Transaction';
         let amountStr = '0';
         let dateStr = now.toISOString().split('T')[0];
         
         for (const field of possibleDescriptionFields) {
-          if (record[field] !== undefined && record[field] !== '') {
-            description = record[field].toString();
+          if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+            description = String(record[field]);
             break;
           }
         }
         
         for (const field of possibleAmountFields) {
-          if (record[field] !== undefined && record[field] !== '') {
-            amountStr = record[field].toString();
+          if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+            amountStr = String(record[field]);
             break;
           }
         }
         
         for (const field of possibleDateFields) {
-          if (record[field] !== undefined && record[field] !== '') {
-            dateStr = record[field].toString();
+          if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+            dateStr = String(record[field]);
             break;
           }
         }
-        
-        const cleanAmountStr = amountStr.toString().replace(/,/g, '').replace(/\s/g, '');
+
+        const cleanAmountStr = amountStr.toString()
+          .replace(/[₹$,]/g, '')
+          .replace(/\s/g, '')
+          .replace(/\(.*\)/, '')
+          .trim();
+
         const amount = Math.abs(parseFloat(cleanAmountStr));
         const type = this.determineTransactionType(record, amountStr);
         
-        if (!isNaN(amount) && amount > 0) {
+        if (!isNaN(amount) && amount > 0.01) {
           let transactionDate: Date;
           
           try {
             transactionDate = new Date(dateStr);
             if (isNaN(transactionDate.getTime())) {
               transactionDate = new Date(now);
-              transactionDate.setDate(transactionDate.getDate() - (index + 1));
+              transactionDate.setDate(transactionDate.getDate() - (records.length - index));
             }
           } catch {
             transactionDate = new Date(now);
-            transactionDate.setDate(transactionDate.getDate() - (index + 1));
+            transactionDate.setDate(transactionDate.getDate() - (records.length - index));
           }
           
           transactions.push({
@@ -284,11 +481,34 @@ export class FileProcessor {
           });
         }
       } catch (error) {
-        console.warn('Failed to parse CSV record:', record, error);
+        console.warn(`Failed to parse CSV record ${index}:`, record, error);
       }
     });
     
+    console.log(`Successfully parsed ${transactions.length} transactions from CSV`);
     return transactions.slice(0, 100);
+  }
+
+  // Helper methods remain the same
+  private parseAmount(amountStr: string): number {
+    const cleanStr = amountStr.replace(/[₹$,]/g, '').replace(/\s/g, '').trim();
+    return parseFloat(cleanStr);
+  }
+
+  private determineTransactionTypeFromText(description: string, amount: number): 'debit' | 'credit' {
+    const desc = description.toLowerCase();
+    
+    if (desc.includes('credit') || desc.includes('salary') || desc.includes('deposit') || 
+        desc.includes('refund') || desc.includes('interest')) {
+      return 'credit';
+    }
+    
+    if (desc.includes('debit') || desc.includes('payment') || desc.includes('withdrawal') ||
+        desc.includes('purchase') || desc.includes('pos') || desc.includes('upi')) {
+      return 'debit';
+    }
+    
+    return amount < 0 ? 'debit' : 'credit';
   }
 
   private categorizeTransaction(description: string): string {
@@ -338,12 +558,24 @@ export class FileProcessor {
   }
 
   private determineTransactionType(record: any, amountStr: string): 'debit' | 'credit' {
-    const str = amountStr.toString();
-    const cleanStr = str.replace(/,/g, '').replace(/\s/g, '');
+    const str = amountStr.toString().toLowerCase();
     
-    if (record.type === 'debit' || record.debit) return 'debit';
-    if (record.type === 'credit' || record.credit) return 'credit';
+    if (record.type === 'debit' || record.debit || str.includes('debit') || str.includes('dr')) {
+      return 'debit';
+    }
+    if (record.type === 'credit' || record.credit || str.includes('credit') || str.includes('cr')) {
+      return 'credit';
+    }
     
-    return cleanStr.startsWith('-') ? 'debit' : 'credit';
+    const cleanStr = str.replace(/[₹$,]/g, '').replace(/\s/g, '').trim();
+    if (cleanStr.startsWith('-') || cleanStr.includes('(')) {
+      return 'debit';
+    }
+    
+    return 'debit';
+  }
+
+  public isUsingDemoData(): boolean {
+    return this.useDemoData;
   }
 }

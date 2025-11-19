@@ -1,5 +1,3 @@
-// Fix the import and return statement - complete file update
-
 "use client"
 
 import { Home, Scan, User } from 'lucide-react'
@@ -12,45 +10,69 @@ interface NavigationProps {
   setActiveTab: (tab: string) => void
 }
 
+const categoryEmojis: Record<string, string> = {
+  food: '🍔',
+  grocery: '🛒',
+  bills: '💡',
+  transport: '🚕',
+  shopping: '🛍️',
+  entertainment: '🎬',
+  general: '💳',
+  transfers: '🔄',
+}
+
+const categoryNames: Record<string, string> = {
+  food: 'Food & Dining',
+  grocery: 'Grocery',
+  bills: 'Bills & Utilities',
+  transport: 'Transport',
+  shopping: 'Shopping',
+  entertainment: 'Entertainment',
+  general: 'General',
+  transfers: 'Transfers',
+}
+
 export default function Navigation({ activeTab, setActiveTab }: NavigationProps) {
-  const [scannerOpen, setScannerOpen] = useState(false)
   const [isSupported, setIsSupported] = useState(true)
   const [showCategorySelector, setShowCategorySelector] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const router = useRouter()
-
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'profile', label: 'Profile', icon: User },
-  ]
 
   const handleScannerClick = async () => {
     try {
+      // Check camera availability
       const devices = await navigator.mediaDevices.enumerateDevices()
       const hasCamera = devices.some(device => device.kind === 'videoinput')
       
       if (!hasCamera) {
         setIsSupported(false)
+        alert('No camera found on this device.')
         return
+      }
+
+      // Check Android for UPI support
+      const isAndroid = /android/i.test(navigator.userAgent)
+      if (!isAndroid) {
+        const proceed = confirm('UPI payments work best on Android devices. You can still scan and record transactions. Continue?')
+        if (!proceed) return
       }
       
       setShowCategorySelector(true)
     } catch (error) {
       console.log("[v0] Camera access error:", error)
       setIsSupported(false)
+      alert('Unable to access camera. Please check permissions.')
     }
   }
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category)
     setShowCategorySelector(false)
+    
+    // Navigate to scan payment page with the selected category
     router.push(`/scan-payment?category=${category}`)
   }
 
-  const handleCloseScan = () => {
-    setScannerOpen(false)
-    setSelectedCategory(null)
-  }
+  const [selectedCategory, setSelectedCategory] = useState<string>('general')
 
   return (
     <>
@@ -70,6 +92,7 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
             <span className="text-xs font-bold">Dashboard</span>
           </button>
 
+          {/* Scan Button - Central FAB */}
           <button
             onClick={handleScannerClick}
             className="flex flex-col items-center justify-center -translate-y-6 relative group"
@@ -81,7 +104,7 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
             <span className="text-xs font-bold mt-1 text-primary">Scan</span>
             
             {/* Pulsing glow effect */}
-            <div className="absolute inset-0 w-16 h-16 rounded-full border-2 border-primary opacity-0 group-hover:opacity-100 animate-pulse" style={{animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'}} />
+            <div className="absolute inset-0 w-16 h-16 rounded-full border-2 border-primary opacity-0 group-hover:opacity-100 animate-pulse" />
           </button>
 
           {/* Profile Tab */}
@@ -100,26 +123,18 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
         </div>
       </nav>
 
+      {/* Category Selector Modal */}
       {showCategorySelector && (
         <CategorySelector
           onSelectCategory={handleCategorySelect}
           onBack={() => setShowCategorySelector(false)}
+          categories={Object.entries(categoryNames).map(([key, name]) => ({
+            id: key,
+            name,
+            emoji: categoryEmojis[key] || '💳'
+          }))}
         />
       )}
-
-      <style jsx>{`
-        @keyframes slideDown {
-          0% {
-            transform: translateY(-100%);
-          }
-          50% {
-            transform: translateY(300px);
-          }
-          100% {
-            transform: translateY(-100%);
-          }
-        }
-      `}</style>
     </>
   )
 }

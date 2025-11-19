@@ -47,6 +47,7 @@
     "embla-carousel-react": "latest",
     "form-data": "^4.0.5",
     "input-otp": "latest",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.454.0",
     "multer": "^2.0.2",
     "next": "16.0.3",

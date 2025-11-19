@@ -9,6 +9,7 @@ export interface Transaction {
   type: 'debit' | 'credit';
   merchant?: string;
   bank?: string;
+  isDemo?: boolean;
 }
 
 export interface ProcessedFile {
