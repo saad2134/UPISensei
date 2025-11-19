@@ -247,4 +247,4 @@ Strong user demand + high technical feasibility + private offline processing = U
 
 ## 🏷 Tags  
 
-`#WebApp` `#Hacknovate-2025` `#fintech` `#upi` `#digital-payments` `#qr-payments` `#expense-tracker` `#personal-finance` `#finance-app` `#banking` `#transaction-analysis` `#data-extraction` `#ocr` `#receipt-scanner` `#categorization` `#automation`
+`#WebApp` `#Hacknovate-2025` `#fintech` `#upi` `#digital-payments` `#qr-payments` `#expense-tracker` `#personal-finance` `#finance-app` `#banking` `#transaction-analysis` `#data-extraction` `#ocr` `#receipt-scanner` `#categorization` `#automation` `#shoaib`
