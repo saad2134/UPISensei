@@ -34,9 +34,9 @@ export default function WeeklySpendingChart() {
     <div className="bg-card border border-border rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold">Monthly Expenditure Breakdown</h3>
-        <a href="#" className="text-sm text-primary hover:text-accent transition-colors font-medium">
+        {/* <a href="#" className="text-sm text-primary hover:text-accent transition-colors font-medium">
           View more
-        </a>
+        </a> */}
       </div>
 
       <div className="flex flex-col items-center">

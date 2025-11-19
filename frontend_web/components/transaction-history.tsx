@@ -78,9 +78,9 @@ export default function TransactionHistory() {
     <div className="bg-card border border-border rounded-2xl p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold">History of Transactions</h3>
-        <a href="#" className="text-sm text-primary hover:text-accent transition-colors font-medium">
+        {/* <a href="#" className="text-sm text-primary hover:text-accent transition-colors font-medium">
           View all
-        </a>
+        </a> */}
       </div>
 
       <div className="space-y-3">

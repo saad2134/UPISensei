@@ -186,12 +186,14 @@ Strong user demand + high technical feasibility + private offline processing = U
 
 |  #  |     Team Member      |              Role              | GitHub Profile |
 | :-: | :------------------: | :----------------------------: | :-----------------------------------------------------------------------------------------------------------------------------: |
-|  1  | Shoeb Ahmed| 💼 Solutions Engineer               | [🔗 XSHOAIB](https://github.com/XSHOAIB) |
-|  2  | Mir Ayan Ali   | 🎨 UI/UX Designer                   | [🔗 mirayanali5](https://github.com/mirayanali5) |
-|  3  | Fareed Ahmed Owais  | 🎯 Team Lead                        | [🔗 FareedAhmedOwais](https://github.com/FareedAhmedOwais) |
-|  4  | Mohammed Saad Uddin  | 🚀 Full-stack + AI/ML Developer     | [🔗 saad2134](https://github.com/saad2134) |
-|  5  | Mohammed Mugees| 🖼️ Front-end Developer             | [🔗 mug3es](https://github.com/mug3es) |
-|  6  | Abdur Rahman Qasim    | 🔎 Research Engineer                | [🔗 Abdur-rahman-01](https://github.com/Abdur-rahman-01) |
+|  1  | Fareed Ahmed Owais  | 🎯 Team Lead                        | [🔗 FareedAhmedOwais](https://github.com/FareedAhmedOwais) |
+|  2  | Abdur Rahman Qasim    | 🔎 Research Engineer                | [🔗 Abdur-rahman-01](https://github.com/Abdur-rahman-01) |
+|  3  | Mohammed Saad Uddin  | 🚀 Full-stack + AI/ML Developer     | [🔗 saad2134](https://github.com/saad2134) |
+|  4  | MD Shoaib Ahmed| 🔗 Backend Support              | [🔗 XSHOAIB](https://github.com/XSHOAIB) |
+|  5  | Mir Ayan Ali   | 🧩 Backend Engineer                  | [🔗 mirayanali5](https://github.com/mirayanali5) |
+|  6  | Mohammed Abdul Mugees| 💼 Solutions Engineer            | [🔗 mug3es](https://github.com/mug3es) |
+
+
 
 </div>
 
@@ -228,12 +230,11 @@ Strong user demand + high technical feasibility + private offline processing = U
 
 
 ## ✨ Icon
-<img width="500" height="500" alt="UpiSensei" src="https://github.com/user-attachments/assets/5c73c8d7-2f85-40ba-8708-f06e1685e058" />
+<img width="500" height="500" alt="Image" src="https://github.com/user-attachments/assets/76608938-d60e-4529-9023-15d414e0b2bc" />
 
-- Soon
 
 ## 🔰 Banner
-<img width="86" height="78" alt="UpiSenseifav" src="https://github.com/user-attachments/assets/ce1776bd-1f61-49b9-8a09-db4d9d811ea3" />
+<img width="500" height="500" alt="Image" src="https://github.com/user-attachments/assets/bea7603c-7119-4ca2-9db5-446f7a79f79b" />
 
 
 
@@ -246,6 +247,4 @@ Strong user demand + high technical feasibility + private offline processing = U
 
 ## 🏷 Tags  
 
-`#WebApp` `#Hacknovate-2025`
-
-
+`#WebApp` `#Hacknovate-2025` `#fintech` `#upi` `#digital-payments` `#qr-payments` `#expense-tracker` `#personal-finance` `#finance-app` `#banking` `#transaction-analysis` `#data-extraction` `#ocr` `#receipt-scanner` `#categorization` `#automation`
