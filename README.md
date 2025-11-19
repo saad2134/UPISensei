@@ -230,12 +230,11 @@ Strong user demand + high technical feasibility + private offline processing = U
 
 
 ## ✨ Icon
-<img width="500" height="500" alt="UpiSensei" src="https://github.com/user-attachments/assets/5c73c8d7-2f85-40ba-8708-f06e1685e058" />
+<img width="500" height="500" alt="Image" src="https://github.com/user-attachments/assets/76608938-d60e-4529-9023-15d414e0b2bc" />
 
-- Soon
 
 ## 🔰 Banner
-<img width="86" height="78" alt="UpiSenseifav" src="https://github.com/user-attachments/assets/ce1776bd-1f61-49b9-8a09-db4d9d811ea3" />
+<img width="500" height="500" alt="Image" src="https://github.com/user-attachments/assets/bea7603c-7119-4ca2-9db5-446f7a79f79b" />
 
 
 
@@ -248,6 +247,4 @@ Strong user demand + high technical feasibility + private offline processing = U
 
 ## 🏷 Tags  
 
-`#WebApp` `#Hacknovate-2025`
-
-
+`#WebApp` `#Hacknovate-2025` `#fintech` `#upi` `#digital-payments` `#qr-payments` `#expense-tracker` `#personal-finance` `#finance-app` `#banking` `#transaction-analysis` `#data-extraction` `#ocr` `#receipt-scanner` `#categorization` `#automation`
