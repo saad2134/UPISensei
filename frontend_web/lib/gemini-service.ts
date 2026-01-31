@@ -2,7 +2,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Transaction } from './database';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+let genAI: GoogleGenerativeAI | null = null;
+
+if (!process.env.GEMINI_API_KEY) {
+  console.warn('GEMINI_API_KEY is not configured. AI features will be disabled.');
+} else {
+  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+}
 
 const SYSTEM_PROMPT = `You are UPISensei, a friendly AI financial agent for the UPISensei platform. 
 
@@ -36,18 +42,26 @@ When analyzing transactions, look for:
 - Budget optimization suggestions`;
 
 export class GeminiService {
-  private model = genAI.getGenerativeModel({ 
+  private model = genAI?.getGenerativeModel({ 
     model: "gemini-2.5-flash",
     systemInstruction: SYSTEM_PROMPT
   });
 
+  private getMissingKeyMessage(): string {
+    return "I apologize, but the AI service is not configured. Please set the GEMINI_API_KEY environment variable to enable AI features.";
+  }
+
   async chatWithUser(userMessage: string, userTransactions: Transaction[], fileContext?: string): Promise<string> {
+    if (!this.model) {
+      return this.getMissingKeyMessage();
+    }
+
     const transactionContext = this.formatTransactionContext(userTransactions);
     const fileContextStr = fileContext ? `\n\nUPLOADED FILE CONTEXT:\n${fileContext}` : '';
 
     const prompt = `
-${SYSTEM_PROMPT}
-
+ ${SYSTEM_PROMPT}
+ 
 CURRENT USER TRANSACTION DATA:
 ${transactionContext}
 ${fileContextStr}
@@ -66,10 +80,14 @@ Please respond as UPISensei AI Agent:`;
   }
 
   async analyzeTransactions(transactions: Transaction[]): Promise<string> {
+    if (!this.model) {
+      return this.getMissingKeyMessage();
+    }
+
     const transactionContext = this.formatTransactionContext(transactions);
     
     const prompt = `
-${SYSTEM_PROMPT}
+ ${SYSTEM_PROMPT}
 
 ANALYZE THESE TRANSACTIONS:
 ${transactionContext}
