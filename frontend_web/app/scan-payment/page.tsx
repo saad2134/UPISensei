@@ -57,6 +57,7 @@ export default function ScanPaymentPage() {
   const streamRef = useRef<MediaStream | null>(null)
   const animationFrameRef = useRef<number | undefined>(undefined)
   const isMountedRef = useRef<boolean>(true)
+  const [permissionRequested, setPermissionRequested] = useState(false)
 
   if (!user) {
     router.push('/login')
@@ -142,6 +143,7 @@ export default function ScanPaymentPage() {
       }
 
       console.log('Requesting camera access...')
+      setPermissionRequested(true)
 
       // Simple constraints
       const constraints: MediaStreamConstraints = {
@@ -222,7 +224,7 @@ export default function ScanPaymentPage() {
       let errorMessage = 'Failed to access camera'
       
       if (error.name === 'NotAllowedError') {
-        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.'
+        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings and try again.'
       } else if (error.name === 'NotFoundError') {
         errorMessage = 'No camera found on this device.'
       } else if (error.name === 'NotReadableError') {
@@ -307,7 +309,10 @@ export default function ScanPaymentPage() {
     }
 
     let lastScanTime = 0
-    const SCAN_INTERVAL = 500 // Only scan every 500ms to reduce load
+    const SCAN_INTERVAL = 100 // Scan every 100ms for better responsiveness
+    let lastScannedCode = ''
+    let consecutiveMatches = 0
+    const REQUIRED_MATCHES = 2 // Require 2 consecutive matches to reduce false positives
 
     const scan = () => {
       if (!isMountedRef.current || !isScanning || !streamRef.current?.active) {
@@ -318,38 +323,50 @@ export default function ScanPaymentPage() {
       try {
         const now = Date.now()
         if (now - lastScanTime < SCAN_INTERVAL) {
-          // Skip this frame to reduce load
           animationFrameRef.current = requestAnimationFrame(scan)
           return
         }
 
-        // Safe check for video readyState
         if (video.readyState && video.readyState >= video.HAVE_CURRENT_DATA) {
           canvas.width = video.videoWidth
           canvas.height = video.videoHeight
           
           context.drawImage(video, 0, 0, canvas.width, canvas.height)
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-          const code = jsQR(imageData.data, imageData.width, imageData.height)
           
-          if (code) {
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert",
+          })
+          
+          if (code && code.data) {
             console.log('QR Code detected:', code.data)
+            
+            if (code.data === lastScannedCode) {
+              consecutiveMatches++
+            } else {
+              consecutiveMatches = 1
+              lastScannedCode = code.data
+            }
+            
             const upiData = parseUPIQR(code.data)
             
-            if (upiData) {
+            if (upiData && consecutiveMatches >= REQUIRED_MATCHES) {
+              console.log('Valid UPI QR confirmed after', consecutiveMatches, 'matches')
               setScannedData(upiData)
               setAmount(upiData.am || '')
               setIsScanning(false)
               stopCamera()
               setCurrentStep('confirm')
               return
-            } else {
+            } else if (!upiData) {
               setScanningText('Not a valid UPI QR code')
               setTimeout(() => {
                 if (isMountedRef.current && isScanning) {
                   setScanningText('Scanning QR code...')
                 }
-              }, 2000)
+              }, 1500)
+            } else {
+              setScanningText('Hold steady to scan...')
             }
           }
           
@@ -359,17 +376,15 @@ export default function ScanPaymentPage() {
         animationFrameRef.current = requestAnimationFrame(scan)
       } catch (error) {
         console.error('Error during QR scanning:', error)
-        // Continue scanning despite errors
         animationFrameRef.current = requestAnimationFrame(scan)
       }
     }
 
-    // Start scanning after a brief delay
     setTimeout(() => {
       if (isMountedRef.current && isScanning && streamRef.current?.active) {
         animationFrameRef.current = requestAnimationFrame(scan)
       }
-    }, 1000)
+    }, 500)
   }
 
   const handleManualDemo = () => {
@@ -387,6 +402,7 @@ export default function ScanPaymentPage() {
 
   const requestCameraAccess = async () => {
     setCameraError('')
+    setPermissionRequested(false)
     setIsScanning(true)
     await startCamera()
   }
@@ -483,13 +499,13 @@ export default function ScanPaymentPage() {
           <div className="flex gap-3 mt-4">
             <button
               onClick={requestCameraAccess}
-              className="px-6 py-2 bg-primary text-black rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+              className="px-6 py-3 bg-primary text-black rounded-lg font-semibold hover:bg-primary/90 transition-colors"
             >
-              Try Again
+              Allow Camera Access
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-white/10 text-white rounded-lg font-semibold hover:bg-white/20 transition-colors border border-white/20"
+              className="px-6 py-3 bg-white/10 text-white rounded-lg font-semibold hover:bg-white/20 transition-colors border border-white/20"
             >
               Refresh Page
             </button>
@@ -523,7 +539,7 @@ export default function ScanPaymentPage() {
           
           {/* Scanner Frame Overlay */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="relative w-64 h-64">
+            <div className="relative w-72 h-72">
               <div className="absolute inset-0 border-2 border-primary rounded-lg" />
               
               <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
@@ -557,7 +573,7 @@ export default function ScanPaymentPage() {
             <p className="text-sm font-medium">
               {isCameraStarting ? 'Starting camera...' : scanningText}
             </p>
-            <p className="text-xs mt-1">Point camera at UPI QR code</p>
+            <p className="text-xs mt-1">Point camera at UPI QR code and hold steady</p>
           </div>
 
           {/* Stream status indicator */}
