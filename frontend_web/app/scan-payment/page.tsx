@@ -58,6 +58,7 @@ export default function ScanPaymentPage() {
   const animationFrameRef = useRef<number | undefined>(undefined)
   const isMountedRef = useRef<boolean>(true)
   const [permissionRequested, setPermissionRequested] = useState(false)
+  const [debugMode, setDebugMode] = useState(false)
 
   if (!user) {
     router.push('/login')
@@ -145,10 +146,13 @@ export default function ScanPaymentPage() {
       console.log('Requesting camera access...')
       setPermissionRequested(true)
 
-      // Simple constraints
+      // Better constraints for QR code scanning
       const constraints: MediaStreamConstraints = {
         video: {
-          ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' })
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          facingMode: 'environment',
+          ...deviceId && { deviceId: { exact: deviceId } }
         },
         audio: false
       }
@@ -158,14 +162,15 @@ export default function ScanPaymentPage() {
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       
       if (!isMountedRef.current) {
-        // Component unmounted while waiting for stream, clean up
         stream.getTracks().forEach(track => track.stop())
         return false
       }
 
       streamRef.current = stream
       
-      // Monitor stream health
+      const videoTrack = stream.getVideoTracks()[0]
+      console.log('Video track settings:', videoTrack.getSettings())
+      
       stream.getVideoTracks().forEach(track => {
         track.addEventListener('ended', () => {
           console.log('Video track ended unexpectedly')
@@ -179,41 +184,44 @@ export default function ScanPaymentPage() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         
-        // Use a simpler approach to wait for video
         const waitForVideo = () => {
           return new Promise<void>((resolve) => {
             const video = videoRef.current
-            if (video && video.readyState >= 2) { // HAVE_CURRENT_DATA or better
+            if (video && video.readyState >= 2) {
+              console.log('Video already ready, readyState:', video.readyState)
               resolve()
             } else {
               const onCanPlay = () => {
                 video?.removeEventListener('canplay', onCanPlay)
+                console.log('Video can play event fired')
                 resolve()
               }
               video?.addEventListener('canplay', onCanPlay)
-              // Fallback timeout
-              setTimeout(resolve, 500)
+              setTimeout(() => {
+                console.log('Video wait timeout, readyState:', video?.readyState)
+                resolve()
+              }, 2000)
             }
           })
         }
 
         await waitForVideo()
 
-        // Start playback without waiting
+        if (videoRef.current) {
+          console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
+        }
+
         videoRef.current.play().catch(error => {
           console.warn('Video play warning:', error)
-          // Non-fatal, continue anyway
         })
       }
 
-      // Get available cameras
       await getCameras()
 
       console.log("Camera started successfully, stream active:", stream.active)
       setScanningText('Scanning QR code...')
       setHasCameraPermission(true)
       
-      // Start QR scanning
       startQRScanning()
       return true
     } catch (error: any) {
@@ -302,17 +310,16 @@ export default function ScanPaymentPage() {
       return
     }
 
-    const context = canvas.getContext('2d')
+    const context = canvas.getContext('2d', { willReadFrequently: true })
     if (!context) {
       console.log('Canvas context not available')
       return
     }
 
     let lastScanTime = 0
-    const SCAN_INTERVAL = 100 // Scan every 100ms for better responsiveness
-    let lastScannedCode = ''
-    let consecutiveMatches = 0
-    const REQUIRED_MATCHES = 2 // Require 2 consecutive matches to reduce false positives
+    const SCAN_INTERVAL = 100 // Scan every 100ms
+    let scanCount = 0
+    let qrFoundCount = 0
 
     const scan = () => {
       if (!isMountedRef.current || !isScanning || !streamRef.current?.active) {
@@ -328,49 +335,55 @@ export default function ScanPaymentPage() {
         }
 
         if (video.readyState && video.readyState >= video.HAVE_CURRENT_DATA) {
+          scanCount++
+          
           canvas.width = video.videoWidth
           canvas.height = video.videoHeight
           
           context.drawImage(video, 0, 0, canvas.width, canvas.height)
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
           
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert",
-          })
-          
-          if (code && code.data) {
-            console.log('QR Code detected:', code.data)
+          try {
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
             
-            if (code.data === lastScannedCode) {
-              consecutiveMatches++
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "attemptBoth",
+            })
+            
+            if (code && code.data) {
+              qrFoundCount++
+              console.log(`QR Code detected (scan #${scanCount}):`, code.data)
+              
+              const upiData = parseUPIQR(code.data)
+              
+              if (upiData) {
+                console.log('Valid UPI QR confirmed!')
+                setScannedData(upiData)
+                setAmount(upiData.am || '')
+                setIsScanning(false)
+                stopCamera()
+                setCurrentStep('confirm')
+                return
+              } else {
+                console.log('QR found but not valid UPI format')
+                setScanningText('Not a valid UPI QR code')
+                setTimeout(() => {
+                  if (isMountedRef.current && isScanning) {
+                    setScanningText('Scanning QR code...')
+                  }
+                }, 1500)
+              }
             } else {
-              consecutiveMatches = 1
-              lastScannedCode = code.data
+              if (scanCount % 10 === 0) {
+                console.log(`No QR found yet (scans: ${scanCount}, QRs found: ${qrFoundCount})`)
+              }
             }
-            
-            const upiData = parseUPIQR(code.data)
-            
-            if (upiData && consecutiveMatches >= REQUIRED_MATCHES) {
-              console.log('Valid UPI QR confirmed after', consecutiveMatches, 'matches')
-              setScannedData(upiData)
-              setAmount(upiData.am || '')
-              setIsScanning(false)
-              stopCamera()
-              setCurrentStep('confirm')
-              return
-            } else if (!upiData) {
-              setScanningText('Not a valid UPI QR code')
-              setTimeout(() => {
-                if (isMountedRef.current && isScanning) {
-                  setScanningText('Scanning QR code...')
-                }
-              }, 1500)
-            } else {
-              setScanningText('Hold steady to scan...')
-            }
+          } catch (canvasError) {
+            console.error('Canvas getImageData error:', canvasError)
           }
           
           lastScanTime = now
+        } else {
+          console.log('Video not ready, readyState:', video.readyState)
         }
         
         animationFrameRef.current = requestAnimationFrame(scan)
@@ -382,9 +395,10 @@ export default function ScanPaymentPage() {
 
     setTimeout(() => {
       if (isMountedRef.current && isScanning && streamRef.current?.active) {
+        console.log('Starting QR scan loop')
         animationFrameRef.current = requestAnimationFrame(scan)
       }
-    }, 500)
+    }, 300)
   }
 
   const handleManualDemo = () => {
@@ -528,14 +542,24 @@ export default function ScanPaymentPage() {
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
+            onLoadedMetadata={() => console.log('Video loaded metadata, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)}
             onLoadedData={() => console.log('Video loaded data')}
             onCanPlay={() => console.log('Video can play')}
             onPlay={() => console.log('Video started playing')}
             onPause={() => console.log('Video paused')}
             onEnded={() => console.log('Video ended')}
+            onPlaying={() => console.log('Video is playing')}
           />
-          <canvas ref={canvasRef} className="hidden" />
+          <canvas ref={canvasRef} className={debugMode ? 'absolute bottom-0 right-0 w-48 h-48 border-2 border-white z-50 bg-black' : 'hidden'} />
+          
+          {/* Debug toggle */}
+          <button
+            onClick={() => setDebugMode(!debugMode)}
+            className="absolute top-4 right-20 bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm border border-white/20"
+          >
+            Debug: {debugMode ? 'ON' : 'OFF'}
+          </button>
           
           {/* Scanner Frame Overlay */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
