@@ -466,7 +466,7 @@ export default function ScanPaymentPage() {
     localStorage.setItem('scan_transactions', JSON.stringify(transactions))
 
     if (isAndroid()) {
-      const upiDeepLink = `upi://pay?pa=${scannedData.pa}&pn=${encodeURIComponent(scannedData.pn)}&am=${amount}&tn=${encodeURIComponent(scannedData.tn || `Payment for ${categoryNames[selectedCategory]}`)}&cu=INR`
+      const upiDeepLink = `upi://pay?pa=${scannedData.pa}&pn=${encodeURIComponent(scannedData.pn)}&am=${encodeURIComponent(amount)}&tn=${encodeURIComponent(scannedData.tn || `Payment for ${categoryNames[selectedCategory]}`)}&cu=INR`
       
       console.log('Redirecting to UPI app:', upiDeepLink)
       stopCamera()
