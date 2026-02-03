@@ -88,14 +88,15 @@ export class OCRService {
     let lastError: Error | null = null;
     
     // Try each API key for this chunk
-    for (const apiKey of this.apiKeys) {
+    for (let keyIndex = 0; keyIndex < this.apiKeys.length; keyIndex++) {
+      const apiKey = this.apiKeys[keyIndex];
       try {
-        console.log(`Processing pages ${pages.join(',')} with key: ${apiKey.substring(0, 5)}...`);
+        console.log(`Processing pages ${pages.join(',')} with key index: ${keyIndex}`);
         const text = await this.sendOCRRequest(buffer, filename, apiKey, pages);
         return text;
       } catch (error: any) {
         lastError = error;
-        console.log(`OCR key ${apiKey.substring(0, 5)} failed for pages ${pages.join(',')}:`, error.message);
+        console.log(`OCR key index ${keyIndex} failed for pages ${pages.join(',')}:`, error.message);
         
         // If it's a rate limit, wait longer
         if (error.message.includes('403') || error.message.includes('rate')) {
