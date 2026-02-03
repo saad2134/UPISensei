@@ -90,12 +90,12 @@ export class OCRService {
     // Try each API key for this chunk
     for (const apiKey of this.apiKeys) {
       try {
-        console.log(`Processing pages ${pages.join(',')} with key: ${apiKey.substring(0, 5)}...`);
+        console.log(`Processing pages ${pages.join(',')} with OCR service...`);
         const text = await this.sendOCRRequest(buffer, filename, apiKey, pages);
         return text;
       } catch (error: any) {
         lastError = error;
-        console.log(`OCR key ${apiKey.substring(0, 5)} failed for pages ${pages.join(',')}:`, error.message);
+        console.log(`OCR attempt failed for pages ${pages.join(',')}:`, error.message);
         
         // If it's a rate limit, wait longer
         if (error.message.includes('403') || error.message.includes('rate')) {
