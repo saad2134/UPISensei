@@ -10,7 +10,7 @@ import WeeklySpendingChart from './weekly-spending-chart'
 import GenZJoke from './gen-z-joke'
 import TransactionHistory from './transaction-history'
 import FloatingChatButton from './floating-chat-button'
-import ProfileSection from './profile-section'
+import MenuSection from './menu-section'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -23,34 +23,25 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted pb-24">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 pb-24">
       <Header />
       
       <main className="max-w-4xl mx-auto px-4 pt-4 pb-8">
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            {/* Spending Stats Card */}
             <SpendingStatsCard />
-
-            {/* Pie Chart Section */}
             <WeeklySpendingChart />
-
-            {/* Gen-Z Joke */}
             <GenZJoke />
-
-            {/* Transaction History */}
             <TransactionHistory />
           </div>
         )}
 
-        {activeTab === 'profile' && (
-          <ProfileSection />
+        {activeTab === 'menu' && (
+          <MenuSection />
         )}
       </main>
 
-      {/* Bottom Navigation */}
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
-
       <FloatingChatButton />
     </div>
   )

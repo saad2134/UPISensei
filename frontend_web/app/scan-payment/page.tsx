@@ -80,6 +80,7 @@ export default function ScanPaymentPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showInvalidQRDialog, setShowInvalidQRDialog] = useState(false)
   const [invalidQRMessage, setInvalidQRMessage] = useState('')
+  const [isFullscreen, setIsFullscreen] = useState(false)
   
   const barcodeDetectorRef = useRef<any>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -87,6 +88,7 @@ export default function ScanPaymentPage() {
   const scanCounterRef = useRef(0)
   const lastValidScanRef = useRef<string>('')
   const lastScanTimeRef = useRef(0)
+  const isInitialMountRef = useRef(true)
 
   if (!user) {
     router.push('/login')
@@ -282,28 +284,29 @@ export default function ScanPaymentPage() {
       }
     }
 
-    if (qrData && qrData !== lastValidScanRef.current) {
-      const upiData = parseUPIQR(qrData)
-      if (upiData) {
-        lastValidScanRef.current = qrData
-        setScannedData(upiData)
-        setAmount(upiData.am || '')
-        setIsScanning(false)
-        stopCamera()
-        setCurrentStep('confirm')
-        return
-      } else {
-        lastValidScanRef.current = qrData
-        setInvalidQRMessage('This QR code is not a valid UPI payment QR code.')
-        setShowInvalidQRDialog(true)
-        lastValidScanRef.current = ''
-        setTimeout(() => {
-          if (isMountedRef.current && isScanning) {
-            lastValidScanRef.current = ''
-          }
-        }, 3000)
-      }
-    }
+              if (qrData && qrData !== lastValidScanRef.current) {
+                const upiData = parseUPIQR(qrData)
+                if (upiData) {
+                  lastValidScanRef.current = qrData
+                  setScannedData(upiData)
+                  setAmount(upiData.am || '')
+                  setIsScanning(false)
+                  setIsFullscreen(false)
+                  stopCamera()
+                  setCurrentStep('confirm')
+                  return
+                } else {
+                  lastValidScanRef.current = qrData
+                  setInvalidQRMessage('This QR code is not a valid UPI payment QR code.')
+                  setShowInvalidQRDialog(true)
+                  lastValidScanRef.current = ''
+                  setTimeout(() => {
+                    if (isMountedRef.current && isScanning) {
+                      lastValidScanRef.current = ''
+                    }
+                  }, 3000)
+                }
+              }
 
     animationFrameRef.current = requestAnimationFrame(processFrame)
   }, [isScanning])
@@ -361,6 +364,7 @@ export default function ScanPaymentPage() {
 
       console.log('Camera started successfully')
       setScanningText('Ready - point at QR code')
+      setIsFullscreen(true)
       
       setTimeout(() => {
         if (isMountedRef.current && isScanning) {
@@ -444,6 +448,8 @@ export default function ScanPaymentPage() {
         if (upiData) {
           setScannedData(upiData)
           setAmount(upiData.am || '')
+          setIsFullscreen(false)
+          stopCamera()
           setCurrentStep('confirm')
         } else {
           setInvalidQRMessage('This image does not contain a valid UPI QR code.')
@@ -472,6 +478,7 @@ export default function ScanPaymentPage() {
       setScannedData(parsedData)
       setAmount(parsedData.am || '')
       setIsScanning(false)
+      setIsFullscreen(false)
       stopCamera()
       setCurrentStep('confirm')
     }
@@ -480,17 +487,13 @@ export default function ScanPaymentPage() {
   useEffect(() => {
     isMountedRef.current = true
 
-    if (isScanning) {
+    if (isScanning && !streamRef.current) {
       startCamera()
     }
 
     return () => {
       isMountedRef.current = false
       stopCamera()
-      if (workerRef.current) {
-        workerRef.current.terminate()
-        workerRef.current = null
-      }
     }
   }, [isScanning])
 
@@ -525,6 +528,7 @@ export default function ScanPaymentPage() {
     if (isAndroid()) {
       const upiDeepLink = `upi://pay?pa=${scannedData.pa}&pn=${encodeURIComponent(scannedData.pn)}&am=${encodeURIComponent(amount)}&tn=${encodeURIComponent(scannedData.tn || `Payment for ${categoryNames[selectedCategory]}`)}&cu=INR`
       stopCamera()
+      setIsFullscreen(false)
       window.location.href = upiDeepLink
       setTimeout(() => {
         if (isMountedRef.current) {
@@ -544,18 +548,21 @@ export default function ScanPaymentPage() {
 
   const handleBack = () => {
     stopCamera()
+    setIsFullscreen(false)
     if (currentStep === 'scanning') {
       router.back()
     } else if (currentStep === 'confirm') {
+      lastValidScanRef.current = ''
       setCurrentStep('scanning')
       setIsScanning(true)
+      setScanningText('Initializing camera...')
     } else {
       router.push('/')
     }
   }
 
   const renderScanningStep = () => (
-    <div className="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
+    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50' : 'flex-1'} overflow-hidden bg-black flex items-center justify-center`}>
       {cameraError ? (
         <div className="flex flex-col items-center justify-center space-y-4 p-6 text-center">
           <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
@@ -594,12 +601,22 @@ export default function ScanPaymentPage() {
           />
           <canvas ref={canvasRef} className={debugMode ? 'absolute bottom-0 right-0 w-48 h-48 border-2 border-white z-50 bg-black' : 'hidden'} />
           
-          <button
-            onClick={() => setDebugMode(!debugMode)}
-            className="absolute top-4 right-20 bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm border border-white/20"
-          >
-            Debug: {debugMode ? 'ON' : 'OFF'}
-          </button>
+          {/*
+          <div className={`absolute top-4 flex gap-2 ${isFullscreen ? 'z-50' : ''}`}>
+            <button
+              onClick={() => setDebugMode(!debugMode)}
+              className="bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm border border-white/20"
+            >
+              Debug: {debugMode ? 'ON' : 'OFF'}
+            </button>
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm border border-white/20"
+            >
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </button>
+          </div>
+          */}
           
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="relative w-72 h-72">
@@ -622,35 +639,38 @@ export default function ScanPaymentPage() {
           
           <label
             htmlFor="image-upload"
-            className={`absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full backdrop-blur-sm border border-white/20 transition-all cursor-pointer ${isProcessingImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full backdrop-blur-sm border border-white/20 transition-all cursor-pointer ${isProcessingImage ? 'opacity-50 cursor-not-allowed' : ''} ${isFullscreen ? 'z-50' : ''}`}
             aria-label="Choose image from gallery"
           >
             <Image className="w-6 h-6" />
           </label>
 
+          {/*
           <button
             onClick={handleManualDemo}
-            className="absolute top-4 left-4 bg-primary/80 hover:bg-primary text-black px-4 py-2 rounded-lg font-semibold text-sm backdrop-blur-sm border border-white/20 transition-all"
+            className={`absolute top-4 left-4 bg-primary/80 hover:bg-primary text-black px-4 py-2 rounded-lg font-semibold text-sm backdrop-blur-sm border border-white/20 transition-all ${isFullscreen ? 'z-50' : ''}`}
           >
             Test Demo
           </button>
+          */}
 
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center text-white/70">
-            <p className="text-sm font-medium">
-              {isCameraStarting ? 'Starting camera...' : isProcessingImage ? 'Processing image...' : scanningText}
-            </p>
-            <p className="text-xs mt-1">Point camera at UPI QR code</p>
-            <p className="text-xs mt-1 text-gray-400">or tap the gallery icon to choose from device</p>
-          </div>
-
-          {streamRef.current && (
-            <div className="absolute top-20 right-20 bg-green-500/20 px-3 py-1 rounded-full border border-green-500/50">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-green-400 text-xs">Camera Active</span>
+          <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 ${isFullscreen ? 'z-50' : ''}`}>
+            {streamRef.current && (
+              <div className="bg-green-500/20 px-4 py-2 rounded-full border border-green-500/50">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-green-400 text-xs font-medium">Camera Active</span>
+                </div>
               </div>
+            )}
+            <div className="text-center text-white/70">
+              <p className="text-sm font-medium">
+                {isCameraStarting ? 'Starting camera...' : isProcessingImage ? 'Processing image...' : scanningText}
+              </p>
+              <p className="text-xs mt-1">Point camera at UPI QR code</p>
+              <p className="text-xs mt-1 text-gray-400">or tap the gallery icon to choose from device</p>
             </div>
-          )}
+          </div>
         </>
       )}
     </div>
