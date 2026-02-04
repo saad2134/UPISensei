@@ -2,9 +2,18 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Check, AlertCircle, Smartphone, Camera, Image, Upload } from 'lucide-react'
+import { ArrowLeft, Check, Smartphone, Camera, Image } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import jsQR from 'jsqr'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 const categoryEmojis: Record<string, string> = {
   food: '🍔',
@@ -29,11 +38,23 @@ const categoryNames: Record<string, string> = {
 }
 
 interface UPIQRData {
-  pa: string; // UPI ID
-  pn: string; // Payee Name
-  am?: string; // Amount
-  tn?: string; // Transaction Note
-  cu?: string; // Currency
+  pa: string;
+  pn: string;
+  am?: string;
+  tn?: string;
+  cu?: string;
+}
+
+interface WorkerMessage {
+  type: 'scan';
+  imageData: ImageData;
+  id: number;
+}
+
+interface WorkerResponse {
+  type: 'result';
+  data: string | null;
+  id: number;
 }
 
 export default function ScanPaymentPage() {
@@ -51,193 +72,53 @@ export default function ScanPaymentPage() {
   const [amount, setAmount] = useState<string>('')
   const [scanningText, setScanningText] = useState('Initializing camera...')
   const [isCameraStarting, setIsCameraStarting] = useState(false)
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const animationFrameRef = useRef<number | undefined>(undefined)
   const isMountedRef = useRef<boolean>(true)
-  const [permissionRequested, setPermissionRequested] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
   const [isProcessingImage, setIsProcessingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showInvalidQRDialog, setShowInvalidQRDialog] = useState(false)
+  const [invalidQRMessage, setInvalidQRMessage] = useState('')
+  
+  const barcodeDetectorRef = useRef<any>(null)
+  const workerRef = useRef<Worker | null>(null)
+  const pendingScansRef = useRef<Map<number, { resolve: (data: string | null) => void; reject: (err: Error) => void }>>(new Map())
+  const scanCounterRef = useRef(0)
+  const lastValidScanRef = useRef<string>('')
+  const lastScanTimeRef = useRef(0)
 
   if (!user) {
     router.push('/login')
     return null
   }
 
-  // Check if user is on Android
   const isAndroid = () => {
     return /android/i.test(navigator.userAgent)
   }
 
   const stopCamera = () => {
-    console.log('Stopping camera...')
-    
-    // Stop animation frame first
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = undefined
     }
 
-    // Stop all media tracks
     if (streamRef.current) {
-      console.log('Stopping stream tracks...')
-      streamRef.current.getTracks().forEach(track => {
-        console.log(`Stopping track: ${track.kind} - ${track.readyState}`)
-        track.stop()
-      })
+      streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
     }
 
-    // Clear video source but don't reset the element
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
   }
 
-  const checkCameraPermission = async (): Promise<boolean> => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      const videoTrack = stream.getVideoTracks()[0]
-      const hasPermission = videoTrack.readyState === 'live'
-      
-      stream.getTracks().forEach(track => track.stop())
-      
-      console.log('Camera permission check:', hasPermission ? 'Granted' : 'Not granted')
-      return hasPermission
-    } catch (error: any) {
-      console.log('Camera permission denied:', error.name)
-      return false
-    }
-  }
-
-  const startCamera = async (): Promise<boolean> => {
-    if (isCameraStarting || !isMountedRef.current) {
-      console.log('Camera is already starting or component unmounted, skipping...')
-      return false
-    }
-
-    try {
-      setIsCameraStarting(true)
-      setScanningText('Starting camera...')
-      setCameraError('')
-      
-      stopCamera()
-
-      console.log('Requesting camera access...')
-      setPermissionRequested(true)
-
-      const constraints: MediaStreamConstraints = {
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'environment',
-        },
-        audio: false
-      }
-
-      console.log('Camera constraints:', constraints)
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-      
-      if (!isMountedRef.current) {
-        stream.getTracks().forEach(track => track.stop())
-        return false
-      }
-
-      streamRef.current = stream
-      
-      const videoTrack = stream.getVideoTracks()[0]
-      console.log('Video track settings:', videoTrack.getSettings())
-      
-      stream.getVideoTracks().forEach(track => {
-        track.addEventListener('ended', () => {
-          console.log('Video track ended unexpectedly')
-          if (isMountedRef.current && isScanning) {
-            setCameraError('Camera stream ended unexpectedly. Please try again.')
-            setIsScanning(false)
-          }
-        })
-      })
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        
-        const waitForVideo = () => {
-          return new Promise<void>((resolve) => {
-            const video = videoRef.current
-            if (video && video.readyState >= 2) {
-              console.log('Video already ready, readyState:', video.readyState)
-              resolve()
-            } else {
-              const onCanPlay = () => {
-                video?.removeEventListener('canplay', onCanPlay)
-                console.log('Video can play event fired')
-                resolve()
-              }
-              video?.addEventListener('canplay', onCanPlay)
-              setTimeout(() => {
-                console.log('Video wait timeout, readyState:', video?.readyState)
-                resolve()
-              }, 2000)
-            }
-          })
-        }
-
-        await waitForVideo()
-
-        if (videoRef.current) {
-          console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
-        }
-
-        videoRef.current.play().catch(error => {
-          console.warn('Video play warning:', error)
-        })
-      }
-
-      console.log("Camera started successfully, stream active:", stream.active)
-      setScanningText('Scanning QR code...')
-      setHasCameraPermission(true)
-      
-      startQRScanning()
-      return true
-    } catch (error: any) {
-      console.error("Camera start error:", error)
-      
-      if (!isMountedRef.current) return false
-
-      let errorMessage = 'Failed to access camera'
-      
-      if (error.name === 'NotAllowedError') {
-        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings and try again.'
-      } else if (error.name === 'NotFoundError') {
-        errorMessage = 'No camera found on this device.'
-      } else if (error.name === 'NotReadableError') {
-        errorMessage = 'Camera is already in use by another application.'
-      } else if (error.name === 'OverconstrainedError') {
-        errorMessage = 'Camera constraints could not be satisfied.'
-      }
-
-      setCameraError(errorMessage)
-      setIsScanning(false)
-      setHasCameraPermission(false)
-      return false
-    } finally {
-      if (isMountedRef.current) {
-        setIsCameraStarting(false)
-      }
-    }
-  }
-
   const parseUPIQR = (data: string): UPIQRData | null => {
-    try {
-      console.log('Parsing QR data:', data)
-      
-      if (!data.startsWith('upi://pay')) {
-        console.log('Not a UPI QR code')
-        return null
-      }
+    if (!data.startsWith('upi://pay')) {
+      return null
+    }
 
+    try {
       const url = new URL(data)
       const params = new URLSearchParams(url.search)
 
@@ -249,114 +130,266 @@ export default function ScanPaymentPage() {
         cu: params.get('cu') || 'INR',
       }
 
-      if (!upiData.pa) {
-        console.log('Missing UPI ID (pa)')
+      if (!upiData.pa || !upiData.pa.includes('@')) {
         return null
       }
 
-      if (!upiData.pa.includes('@')) {
-        console.log('Invalid UPI ID format')
-        return null
-      }
-
-      console.log('Valid UPI QR parsed:', upiData)
       return upiData
-    } catch (error) {
-      console.error('Error parsing UPI QR:', error)
+    } catch {
       return null
     }
   }
 
-  const startQRScanning = () => {
+  const initBarcodeDetector = async () => {
+    if ('BarcodeDetector' in window) {
+      try {
+        const formats = await (window as any).BarcodeDetector.getSupportedFormats()
+        if (formats.includes('qr_code')) {
+          barcodeDetectorRef.current = new (window as any).BarcodeDetector({
+            formats: ['qr_code']
+          })
+          return true
+        }
+      } catch {
+        console.log('BarcodeDetector not available')
+      }
+    }
+    return false
+  }
+
+  const initWorker = () => {
+    if (typeof window !== 'undefined' && !workerRef.current) {
+      const workerCode = `
+        self.onmessage = function(e) {
+          if (e.data.type === 'scan') {
+            const { imageData } = e.data
+            try {
+              importScripts('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js')
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert',
+              })
+              self.postMessage({ type: 'result', data: code?.data || null, id: e.data.id })
+            } catch (err) {
+              self.postMessage({ type: 'result', data: null, id: e.data.id })
+            }
+          }
+        }
+      `
+      const blob = new Blob([workerCode], { type: 'application/javascript' })
+      workerRef.current = new Worker(URL.createObjectURL(blob))
+      
+      workerRef.current.onmessage = (e: MessageEvent) => {
+        const data = e.data as { type: string; data: string | null; id: number }
+        const pending = pendingScansRef.current.get(data.id)
+        if (pending) {
+          pending.resolve(data.data)
+          pendingScansRef.current.delete(data.id)
+        }
+      }
+    }
+  }
+
+  const scanWithWorker = (imageData: ImageData): Promise<string | null> => {
+    return new Promise((resolve, reject) => {
+      const id = ++scanCounterRef.current
+      pendingScansRef.current.set(id, { resolve: (data: string | null) => resolve(data), reject })
+      
+      if (workerRef.current) {
+        workerRef.current.postMessage({
+          type: 'scan',
+          imageData,
+          id
+        })
+      } else {
+        reject(new Error('Worker not initialized'))
+      }
+    })
+  }
+
+  const enhanceImageContrast = (ctx: CanvasRenderingContext2D, width: number, height: number): ImageData => {
+    const imageData = ctx.getImageData(0, 0, width, height)
+    const data = imageData.data
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3
+      const threshold = 128
+      const val = avg > threshold ? 255 : 0
+      data[i] = val
+      data[i + 1] = val
+      data[i + 2] = val
+    }
+    
+    return imageData
+  }
+
+  const processFrame = useCallback(async () => {
     const video = videoRef.current
     const canvas = canvasRef.current
     
-    if (!video || !canvas || !streamRef.current) {
-      console.log('QR scanning prerequisites not met')
+    if (!video || !canvas || !streamRef.current || !isMountedRef.current || !isScanning) {
       return
     }
+
+    if (video.readyState < video.HAVE_CURRENT_DATA) {
+      animationFrameRef.current = requestAnimationFrame(processFrame)
+      return
+    }
+
+    const now = Date.now()
+    if (now - lastScanTimeRef.current < 8) {
+      animationFrameRef.current = requestAnimationFrame(processFrame)
+      return
+    }
+    lastScanTimeRef.current = now
+
+    const scanRegion = Math.min(video.videoWidth, video.videoHeight) * 0.6
+    const sx = (video.videoWidth - scanRegion) / 2
+    const sy = (video.videoHeight - scanRegion) / 2
+
+    canvas.width = scanRegion
+    canvas.height = scanRegion
 
     const context = canvas.getContext('2d', { willReadFrequently: true })
     if (!context) {
-      console.log('Canvas context not available')
+      animationFrameRef.current = requestAnimationFrame(processFrame)
       return
     }
 
-    let lastScanTime = 0
-    const SCAN_INTERVAL = 16 // Scan every ~16ms for ~60fps
-    let scanCount = 0
-    let consecutiveNoQR = 0
-    let qrFoundCount = 0
-    const CONFIRMATION_THRESHOLD = 2 // Confirm after 2 consecutive scans
+    context.drawImage(video, sx, sy, scanRegion, scanRegion, 0, 0, scanRegion, scanRegion)
+    
+    let qrData: string | null = null
 
-    const scan = () => {
-      if (!isMountedRef.current || !isScanning || !streamRef.current?.active) {
-        console.log('Stopping QR scan: component unmounted or stream inactive')
-        return
-      }
-
+    if (barcodeDetectorRef.current) {
       try {
-        const now = Date.now()
-        if (now - lastScanTime < SCAN_INTERVAL) {
-          animationFrameRef.current = requestAnimationFrame(scan)
-          return
+        const bitmap = await createImageBitmap(canvas)
+        const barcodes = await barcodeDetectorRef.current.detect(bitmap)
+        if (barcodes.length > 0 && barcodes[0].rawValue) {
+          qrData = barcodes[0].rawValue
         }
-
-        if (video.readyState && video.readyState >= video.HAVE_CURRENT_DATA) {
-          scanCount++
-          
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
-          
-          context.drawImage(video, 0, 0, canvas.width, canvas.height)
-          
-          try {
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-            
-              const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-              })
-            
-            if (code && code.data) {
-              qrFoundCount++
-              consecutiveNoQR = 0
-              
-              const upiData = parseUPIQR(code.data)
-              
-              if (upiData) {
-                console.log('Valid UPI QR confirmed!')
-                setScannedData(upiData)
-                setAmount(upiData.am || '')
-                setIsScanning(false)
-                stopCamera()
-                setCurrentStep('confirm')
-                return
-              }
-            } else {
-              consecutiveNoQR++
-            }
-          } catch (canvasError) {
-            console.error('Canvas getImageData error:', canvasError)
-          }
-          
-          lastScanTime = now
-        } else {
-          console.log('Video not ready, readyState:', video.readyState)
-        }
-        
-        animationFrameRef.current = requestAnimationFrame(scan)
-      } catch (error) {
-        console.error('Error during QR scanning:', error)
-        animationFrameRef.current = requestAnimationFrame(scan)
+        bitmap.close()
+      } catch {
+        qrData = null
       }
     }
 
-    setTimeout(() => {
-      if (isMountedRef.current && isScanning && streamRef.current?.active) {
-        console.log('Starting QR scan loop')
-        animationFrameRef.current = requestAnimationFrame(scan)
+    if (!qrData && workerRef.current) {
+      try {
+        const imageData = context.getImageData(0, 0, scanRegion, scanRegion)
+        const enhancedData = enhanceImageContrast(context, scanRegion, scanRegion)
+        qrData = await scanWithWorker(enhancedData)
+      } catch {
+        qrData = null
       }
-    }, 100)
+    }
+
+    if (qrData && qrData !== lastValidScanRef.current) {
+      const upiData = parseUPIQR(qrData)
+      if (upiData) {
+        lastValidScanRef.current = qrData
+        setScannedData(upiData)
+        setAmount(upiData.am || '')
+        setIsScanning(false)
+        stopCamera()
+        setCurrentStep('confirm')
+        return
+      } else {
+        lastValidScanRef.current = qrData
+        setInvalidQRMessage('This QR code is not a valid UPI payment QR code.')
+        setShowInvalidQRDialog(true)
+        lastValidScanRef.current = ''
+        setTimeout(() => {
+          if (isMountedRef.current && isScanning) {
+            lastValidScanRef.current = ''
+          }
+        }, 3000)
+      }
+    }
+
+    animationFrameRef.current = requestAnimationFrame(processFrame)
+  }, [isScanning])
+
+  const startCamera = async (): Promise<boolean> => {
+    if (isCameraStarting || !isMountedRef.current) {
+      return false
+    }
+
+    try {
+      setIsCameraStarting(true)
+      setScanningText('Starting camera...')
+      setCameraError('')
+      
+      stopCamera()
+
+      const hasBarcodeDetector = await initBarcodeDetector()
+      if (hasBarcodeDetector) {
+        console.log('Using native BarcodeDetector API for fast scanning')
+      } else {
+        console.log('BarcodeDetector not available, using jsQR with Web Worker')
+        initWorker()
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'environment',
+        },
+        audio: false
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach(track => track.stop())
+        return false
+      }
+
+      streamRef.current = stream
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await new Promise<void>((resolve) => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            resolve()
+          } else {
+            videoRef.current?.addEventListener('canplay', () => resolve(), { once: true })
+            setTimeout(resolve, 1000)
+          }
+        })
+        videoRef.current.play().catch(() => {})
+      }
+
+      console.log('Camera started successfully')
+      setScanningText('Ready - point at QR code')
+      
+      setTimeout(() => {
+        if (isMountedRef.current && isScanning) {
+          animationFrameRef.current = requestAnimationFrame(processFrame)
+        }
+      }, 50)
+
+      return true
+    } catch (error: any) {
+      if (!isMountedRef.current) return false
+
+      let errorMessage = 'Failed to access camera'
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.'
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'No camera found on this device.'
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = 'Camera is already in use by another application.'
+      }
+
+      setCameraError(errorMessage)
+      setIsScanning(false)
+      return false
+    } finally {
+      if (isMountedRef.current) {
+        setIsCameraStarting(false)
+      }
+    }
   }
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -384,44 +417,45 @@ export default function ScanPaymentPage() {
       canvas.height = imageBitmap.height
       context.drawImage(imageBitmap, 0, 0)
 
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "attemptBoth",
-      })
+      let qrData: string | null = null
 
-      if (code && code.data) {
-        console.log('QR Code found in image:', code.data)
-        const upiData = parseUPIQR(code.data)
+      if (barcodeDetectorRef.current) {
+        try {
+          const barcodes = await barcodeDetectorRef.current.detect(imageBitmap)
+          if (barcodes.length > 0) {
+            qrData = barcodes[0].rawValue
+          }
+        } catch {
+          qrData = null
+        }
+      }
+
+      if (!qrData) {
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth",
+        })
+        qrData = code?.data || null
+      }
+
+      if (qrData) {
+        const upiData = parseUPIQR(qrData)
         
         if (upiData) {
-          console.log('Valid UPI QR confirmed from image!')
           setScannedData(upiData)
           setAmount(upiData.am || '')
           setCurrentStep('confirm')
         } else {
-          setScanningText('Not a valid UPI QR code')
-          setTimeout(() => {
-            if (isMountedRef.current && isScanning) {
-              setScanningText('Scanning QR code...')
-            }
-          }, 2000)
+          setInvalidQRMessage('This image does not contain a valid UPI QR code.')
+          setShowInvalidQRDialog(true)
         }
       } else {
-        setScanningText('No QR code found in image')
-        setTimeout(() => {
-          if (isMountedRef.current && isScanning) {
-            setScanningText('Scanning QR code...')
-          }
-        }, 2000)
+        setInvalidQRMessage('No QR code found in the selected image.')
+        setShowInvalidQRDialog(true)
       }
-    } catch (error) {
-      console.error('Error processing image:', error)
-      setScanningText('Error processing image')
-      setTimeout(() => {
-        if (isMountedRef.current && isScanning) {
-          setScanningText('Scanning QR code...')
-        }
-      }, 2000)
+    } catch {
+      setInvalidQRMessage('Error processing the image. Please try another one.')
+      setShowInvalidQRDialog(true)
     } finally {
       setIsProcessingImage(false)
       if (fileInputRef.current) {
@@ -443,25 +477,20 @@ export default function ScanPaymentPage() {
     }
   }
 
-  const requestCameraAccess = async () => {
-    setCameraError('')
-    setPermissionRequested(false)
-    setIsScanning(true)
-    await startCamera()
-  }
-
   useEffect(() => {
     isMountedRef.current = true
 
     if (isScanning) {
-      console.log('Initializing camera on mount...')
       startCamera()
     }
 
     return () => {
-      console.log('Component unmounting, cleaning up...')
       isMountedRef.current = false
       stopCamera()
+      if (workerRef.current) {
+        workerRef.current.terminate()
+        workerRef.current = null
+      }
     }
   }, [isScanning])
 
@@ -470,7 +499,8 @@ export default function ScanPaymentPage() {
 
     const amountNum = parseFloat(amount)
     if (isNaN(amountNum) || amountNum <= 0) {
-      alert('Please enter a valid amount')
+      setInvalidQRMessage('Please enter a valid amount')
+      setShowInvalidQRDialog(true)
       return
     }
 
@@ -487,8 +517,6 @@ export default function ScanPaymentPage() {
       status: isAndroid() ? 'pending' : 'recorded',
     }
 
-    console.log('UPI Transaction:', transaction)
-
     const savedTransactions = localStorage.getItem('scan_transactions')
     let transactions = savedTransactions ? JSON.parse(savedTransactions) : []
     transactions.unshift(transaction)
@@ -496,11 +524,8 @@ export default function ScanPaymentPage() {
 
     if (isAndroid()) {
       const upiDeepLink = `upi://pay?pa=${scannedData.pa}&pn=${encodeURIComponent(scannedData.pn)}&am=${encodeURIComponent(amount)}&tn=${encodeURIComponent(scannedData.tn || `Payment for ${categoryNames[selectedCategory]}`)}&cu=INR`
-      
-      console.log('Redirecting to UPI app:', upiDeepLink)
       stopCamera()
       window.location.href = upiDeepLink
-
       setTimeout(() => {
         if (isMountedRef.current) {
           setCurrentStep('success')
@@ -541,21 +566,15 @@ export default function ScanPaymentPage() {
           
           <div className="flex gap-3 mt-4">
             <button
-              onClick={requestCameraAccess}
+              onClick={() => window.location.reload()}
               className="px-6 py-3 bg-primary text-black rounded-lg font-semibold hover:bg-primary/90 transition-colors"
             >
               Allow Camera Access
             </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-white/10 text-white rounded-lg font-semibold hover:bg-white/20 transition-colors border border-white/20"
-            >
-              Refresh Page
-            </button>
           </div>
 
           <div className="mt-6 pt-4 border-t border-white/20">
-            <p className="text-gray-400 text-sm mb-2">Or continue with demo mode:</p>
+            <p className="text-gray-400 text-sm mb-2">Or try demo mode:</p>
             <button
               onClick={handleManualDemo}
               className="px-4 py-2 bg-blue-500/20 text-blue-300 rounded-lg font-semibold hover:bg-blue-500/30 transition-colors border border-blue-500/30 text-sm"
@@ -572,17 +591,9 @@ export default function ScanPaymentPage() {
             playsInline
             muted
             className="w-full h-full object-contain"
-            onLoadedMetadata={() => console.log('Video loaded metadata, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)}
-            onLoadedData={() => console.log('Video loaded data')}
-            onCanPlay={() => console.log('Video can play')}
-            onPlay={() => console.log('Video started playing')}
-            onPause={() => console.log('Video paused')}
-            onEnded={() => console.log('Video ended')}
-            onPlaying={() => console.log('Video is playing')}
           />
           <canvas ref={canvasRef} className={debugMode ? 'absolute bottom-0 right-0 w-48 h-48 border-2 border-white z-50 bg-black' : 'hidden'} />
           
-          {/* Debug toggle */}
           <button
             onClick={() => setDebugMode(!debugMode)}
             className="absolute top-4 right-20 bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm border border-white/20"
@@ -590,18 +601,14 @@ export default function ScanPaymentPage() {
             Debug: {debugMode ? 'ON' : 'OFF'}
           </button>
           
-          {/* Scanner Frame Overlay */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="relative w-72 h-72">
               <div className="absolute inset-0 border-2 border-primary rounded-lg" />
-              
               <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
               <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg" />
               <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg" />
               <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg" />
             </div>
-            
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-1 bg-gradient-to-r from-transparent via-primary to-transparent animate-pulse" />
           </div>
 
           <input
@@ -632,15 +639,14 @@ export default function ScanPaymentPage() {
             <p className="text-sm font-medium">
               {isCameraStarting ? 'Starting camera...' : isProcessingImage ? 'Processing image...' : scanningText}
             </p>
-            <p className="text-xs mt-1">Point camera at UPI QR code and hold steady</p>
+            <p className="text-xs mt-1">Point camera at UPI QR code</p>
             <p className="text-xs mt-1 text-gray-400">or tap the gallery icon to choose from device</p>
           </div>
 
-          {/* Stream status indicator */}
           {streamRef.current && (
             <div className="absolute top-20 right-20 bg-green-500/20 px-3 py-1 rounded-full border border-green-500/50">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 <span className="text-green-400 text-xs">Camera Active</span>
               </div>
             </div>
@@ -703,11 +709,7 @@ export default function ScanPaymentPage() {
               </div>
             )}
 
-            <div className={`rounded-xl p-4 border ${
-              isAndroid() 
-                ? 'bg-green-500/20 border-green-500/50' 
-                : 'bg-yellow-500/20 border-yellow-500/50'
-            }`}>
+            <div className={`rounded-xl p-4 border ${isAndroid() ? 'bg-green-500/20 border-green-500/50' : 'bg-yellow-500/20 border-yellow-500/50'}`}>
               <div className="flex items-center gap-2 mb-2">
                 <Smartphone className={`w-5 h-5 ${isAndroid() ? 'text-green-500' : 'text-yellow-500'}`} />
                 <p className={`font-semibold ${isAndroid() ? 'text-green-500' : 'text-yellow-500'}`}>
@@ -715,10 +717,7 @@ export default function ScanPaymentPage() {
                 </p>
               </div>
               <p className={`text-sm ${isAndroid() ? 'text-green-400' : 'text-yellow-400'}`}>
-                {isAndroid() 
-                  ? 'You will be redirected to your UPI app to complete the payment.'
-                  : 'UPI payments are only supported on Android devices. Transaction will be recorded only.'
-                }
+                {isAndroid() ? 'You will be redirected to your UPI app to complete the payment.' : 'UPI payments are only supported on Android devices. Transaction will be recorded only.'}
               </p>
             </div>
 
@@ -745,10 +744,7 @@ export default function ScanPaymentPage() {
           {isAndroid() ? 'Payment Initiated' : 'Transaction Recorded'}
         </h2>
         <p className="text-gray-300 mb-4">
-          {isAndroid() 
-            ? 'Redirecting to UPI app...' 
-            : 'Transaction has been recorded successfully'
-          }
+          {isAndroid() ? 'Redirecting to UPI app...' : 'Transaction has been recorded successfully'}
         </p>
         <div className="bg-white/5 rounded-lg p-4 border border-white/10">
           <p className="text-white font-semibold">₹{amount}</p>
@@ -787,6 +783,28 @@ export default function ScanPaymentPage() {
       {currentStep === 'scanning' && renderScanningStep()}
       {currentStep === 'confirm' && renderConfirmStep()}
       {currentStep === 'success' && renderSuccessStep()}
+
+      <Dialog open={showInvalidQRDialog} onOpenChange={setShowInvalidQRDialog}>
+        <DialogContent className="bg-gray-900 border-gray-800 text-white">
+          <DialogHeader>
+            <div className="bg-red-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Image className="w-6 h-6 text-red-500" />
+            </div>
+            <DialogTitle className="text-center">Invalid QR Code</DialogTitle>
+            <DialogDescription className="text-center text-gray-400">
+              {invalidQRMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowInvalidQRDialog(false)}
+              className="w-full bg-primary text-black hover:bg-primary/90"
+            >
+              Try Again
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
