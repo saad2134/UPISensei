@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Check, Smartphone, Camera, Image } from 'lucide-react'
+import { ArrowLeft, Check, Smartphone, Camera, Image, Lock, Shield, RefreshCw, CreditCard, ChevronDown, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import jsQR from 'jsqr'
 import {
@@ -67,7 +67,9 @@ export default function ScanPaymentPage() {
   const [isScanning, setIsScanning] = useState(true)
   const [cameraError, setCameraError] = useState<string>('')
   const [scannedData, setScannedData] = useState<UPIQRData | null>(null)
-  const [currentStep, setCurrentStep] = useState<'scanning' | 'category' | 'confirm' | 'success'>('scanning')
+  const [currentStep, setCurrentStep] = useState<'scanning' | 'category' | 'confirm' | 'pin' | 'success'>('scanning')
+  const [pinInputs, setPinInputs] = useState<string[]>([])
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>(category || 'general')
   const [amount, setAmount] = useState<string>('')
   const [scanningText, setScanningText] = useState('Initializing camera...')
@@ -497,7 +499,7 @@ export default function ScanPaymentPage() {
     }
   }, [isScanning])
 
-  const handlePayment = () => {
+  const handleProceedToPay = () => {
     if (!scannedData || !amount) return
 
     const amountNum = parseFloat(amount)
@@ -507,17 +509,25 @@ export default function ScanPaymentPage() {
       return
     }
 
+    setPinInputs([])
+    setCurrentStep('pin')
+  }
+
+  const handleLaunchUPIApp = (appScheme: string) => {
+    const amountNum = parseFloat(amount)
+    
+    // Save transaction to local storage
     const transaction = {
       id: Date.now(),
       type: 'sent' as const,
-      name: scannedData.pn,
-      upiId: scannedData.pa,
+      name: scannedData?.pn || 'Merchant Store',
+      upiId: scannedData?.pa || 'merchant@upi',
       emoji: categoryEmojis[selectedCategory] || '💳',
       amount: amountNum,
-      time: new Date().toLocaleTimeString(),
-      category: categoryNames[selectedCategory],
+      time: 'Just now',
+      category: categoryNames[selectedCategory] || 'General',
       timestamp: new Date().toISOString(),
-      status: isAndroid() ? 'pending' : 'recorded',
+      status: 'recorded',
     }
 
     const savedTransactions = localStorage.getItem('scan_transactions')
@@ -525,25 +535,46 @@ export default function ScanPaymentPage() {
     transactions.unshift(transaction)
     localStorage.setItem('scan_transactions', JSON.stringify(transactions))
 
-    if (isAndroid()) {
-      const upiDeepLink = `upi://pay?pa=${scannedData.pa}&pn=${encodeURIComponent(scannedData.pn)}&am=${encodeURIComponent(amount)}&tn=${encodeURIComponent(scannedData.tn || `Payment for ${categoryNames[selectedCategory]}`)}&cu=INR`
-      stopCamera()
-      setIsFullscreen(false)
-      window.location.href = upiDeepLink
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          setCurrentStep('success')
-        }
-      }, 1000)
+    // Construct deep link
+    const pa = scannedData?.pa || '';
+    const pn = scannedData?.pn || 'Merchant';
+    const am = amount;
+    const cu = scannedData?.cu || 'INR';
+    const tn = scannedData?.tn || 'Payment';
+    
+    const queryParams = `pa=${pa}&pn=${encodeURIComponent(pn)}&am=${am}&cu=${cu}&tn=${encodeURIComponent(tn)}`;
+    let deepLink = '';
+    if (appScheme === 'gpay') {
+      deepLink = `tez://upi/pay?${queryParams}`;
+    } else if (appScheme === 'phonepe') {
+      deepLink = `phonepe://pay?${queryParams}`;
+    } else if (appScheme === 'paytm') {
+      deepLink = `paytmmp://pay?${queryParams}`;
     } else {
-      setCurrentStep('success')
+      deepLink = `upi://pay?${queryParams}`;
     }
+
+    // Trigger Speech synthesis for deep linking launch
+    try {
+      if ('speechSynthesis' in window) {
+        const text = `Opening UPI app to pay ${amountNum} rupees to ${transaction.name}.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (err) {}
+
+    // Open UPI deep link
+    window.location.href = deepLink;
+
+    // Show success redirect screen
+    setCurrentStep('success');
 
     setTimeout(() => {
       if (isMountedRef.current) {
-        router.push('/')
+        router.push('/');
       }
-    }, 3000)
+    }, 3500);
   }
 
   const handleBack = () => {
@@ -556,6 +587,8 @@ export default function ScanPaymentPage() {
       setCurrentStep('scanning')
       setIsScanning(true)
       setScanningText('Initializing camera...')
+    } else if (currentStep === 'pin') {
+      setCurrentStep('confirm')
     } else {
       router.push('/')
     }
@@ -676,149 +709,268 @@ export default function ScanPaymentPage() {
     </div>
   )
 
+  const handlePinKeyPress = (val: string) => {
+    if (val === 'back') {
+      setPinInputs(prev => prev.slice(0, -1))
+    } else if (pinInputs.length < 4) {
+      setPinInputs(prev => [...prev, val])
+    }
+  }
+
   const renderConfirmStep = () => (
-    <div className="flex-1 bg-black p-6 overflow-y-auto">
-      <div className="max-w-md mx-auto">
-        <h2 className="text-2xl font-bold text-white text-center mb-6">Confirm Payment</h2>
+    <div className="flex-1 bg-background text-foreground p-5 overflow-y-auto flex flex-col justify-between">
+      <div className="max-w-md mx-auto w-full space-y-5">
         
+        {/* Invoice Header Recipient Card */}
         {scannedData && (
-          <div className="space-y-6">
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <h3 className="text-white font-semibold mb-3">Recipient Details</h3>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-gray-400 text-sm">Name</p>
-                  <p className="text-white font-medium">{scannedData.pn}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">UPI ID</p>
-                  <p className="text-white font-medium text-sm break-all">{scannedData.pa}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{categoryEmojis[selectedCategory]}</span>
-                  <span className="text-white">{categoryNames[selectedCategory]}</span>
-                </div>
+          <div className="bg-card border border-border rounded-3xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-lg text-primary shrink-0 select-none">
+                {scannedData.pn ? scannedData.pn[0].toUpperCase() : 'M'}
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-sm text-foreground truncate">{scannedData.pn || 'Merchant Store'}</p>
+                <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px]">{scannedData.pa}</p>
               </div>
             </div>
-
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <h3 className="text-white font-semibold mb-3">Amount</h3>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white text-2xl">₹</span>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  min="1"
-                  step="1"
-                  className="w-full bg-white/10 border border-white/20 rounded-lg py-4 px-12 text-white text-xl font-semibold placeholder-gray-400 focus:outline-none focus:border-primary"
-                />
+            
+            {/* Category tag Selector */}
+            <div className="border-t border-border/80 pt-3 flex flex-col gap-1.5">
+              <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground pl-1">Transaction Category</span>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full select-none">
+                {Object.entries(categoryNames).map(([key, name]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedCategory(key)}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-full border shrink-0 transition-all ${
+                      selectedCategory === key 
+                        ? 'bg-primary/15 border-primary text-primary' 
+                        : 'bg-muted/50 border-border text-muted-foreground hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    <span className="mr-1">{categoryEmojis[key]}</span>
+                    <span>{name}</span>
+                  </button>
+                ))}
               </div>
-              {scannedData.am && (
-                <p className="text-gray-400 text-sm mt-2">
-                  Suggested amount: ₹{scannedData.am}
-                </p>
-              )}
             </div>
-
-            {scannedData.tn && (
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <h3 className="text-white font-semibold mb-2">Transaction Note</h3>
-                <p className="text-gray-300 text-sm">{scannedData.tn}</p>
-              </div>
-            )}
-
-            <div className={`rounded-xl p-4 border ${isAndroid() ? 'bg-green-500/20 border-green-500/50' : 'bg-yellow-500/20 border-yellow-500/50'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Smartphone className={`w-5 h-5 ${isAndroid() ? 'text-green-500' : 'text-yellow-500'}`} />
-                <p className={`font-semibold ${isAndroid() ? 'text-green-500' : 'text-yellow-500'}`}>
-                  {isAndroid() ? 'Ready for UPI Payment' : 'Platform Limitation'}
-                </p>
-              </div>
-              <p className={`text-sm ${isAndroid() ? 'text-green-400' : 'text-yellow-400'}`}>
-                {isAndroid() ? 'You will be redirected to your UPI app to complete the payment.' : 'UPI payments are only supported on Android devices. Transaction will be recorded only.'}
-              </p>
-            </div>
-
-            <button
-              onClick={handlePayment}
-              disabled={!amount || parseFloat(amount) <= 0}
-              className="w-full py-4 bg-primary text-black rounded-xl font-bold text-lg hover:bg-primary/90 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {isAndroid() ? 'Continue to Payment' : 'Record Transaction'}
-            </button>
           </div>
         )}
+
+        {/* Amount Input Card */}
+        <div className="bg-card border border-border rounded-3xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Enter Amount</span>
+            {scannedData?.am && (
+              <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Suggested: ₹{scannedData.am}</span>
+            )}
+          </div>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl font-black text-muted-foreground font-mono">₹</span>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              min="1"
+              step="1"
+              className="w-full bg-muted/30 border border-border rounded-2xl py-4 pl-10 pr-4 text-foreground text-2xl font-black placeholder-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+            />
+          </div>
+          
+          {/* Quick chip amounts */}
+          <div className="flex gap-2">
+            {[100, 500, 1000, 2000].map(val => (
+              <button
+                key={val}
+                onClick={() => setAmount(val.toString())}
+                className="flex-1 py-1.5 border border-border hover:border-primary hover:text-primary rounded-xl text-[10px] font-bold transition-all bg-card shadow-2xs"
+              >
+                +₹{val}
+              </button>
+            ))}
+          </div>
+        </div>
+
+
+
+        {/* Security Warning */}
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-start gap-3">
+          <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[11px] font-bold text-primary">UPISensei Safe Check</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed font-medium">
+              You are paying in a simulated environment. The transaction will be securely logged to your dashboard stats.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <button
+        onClick={handleProceedToPay}
+        disabled={!amount || parseFloat(amount) <= 0}
+        className="w-full py-4 mt-6 bg-[#5f259f] hover:bg-[#4d1d82] text-white rounded-2xl font-bold text-sm shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+      >
+        PROCEED TO PAY
+      </button>
+    </div>
+  )
+
+  const renderPinStep = () => (
+    <div className="flex-1 bg-slate-950 text-white flex flex-col justify-between p-5 overflow-y-auto">
+      <div className="text-center py-4 space-y-2 shrink-0">
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Select UPI App to Pay</p>
+        <h3 className="text-lg font-black text-white">{scannedData?.pn || 'Merchant Store'}</h3>
+        <p className="text-[10px] text-slate-400 font-mono truncate max-w-[250px] mx-auto">{scannedData?.pa}</p>
+        <h2 className="text-3xl font-black text-[#a855f7] font-mono mt-1">₹{parseFloat(amount).toLocaleString()}</h2>
+      </div>
+
+      <div className="flex flex-col gap-3 my-4">
+        <button
+          onClick={() => handleLaunchUPIApp('phonepe')}
+          className="flex items-center gap-3 w-full bg-slate-900 border border-slate-800 hover:border-[#5f259f] p-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center font-bold text-white shrink-0">
+            PP
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-bold text-white">Pay via PhonePe</p>
+            <p className="text-[10px] text-slate-400">Launch PhonePe application</p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => handleLaunchUPIApp('gpay')}
+          className="flex items-center gap-3 w-full bg-slate-900 border border-slate-800 hover:border-blue-500 p-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center font-bold text-white shrink-0">
+            GP
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-bold text-white">Pay via Google Pay (GPay)</p>
+            <p className="text-[10px] text-slate-400">Launch Google Pay application</p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => handleLaunchUPIApp('paytm')}
+          className="flex items-center gap-3 w-full bg-slate-900 border border-slate-800 hover:border-cyan-500 p-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <div className="w-10 h-10 rounded-xl bg-cyan-500 flex items-center justify-center font-bold text-white shrink-0">
+            PT
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-bold text-white">Pay via Paytm</p>
+            <p className="text-[10px] text-slate-400">Launch Paytm application</p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => handleLaunchUPIApp('default')}
+          className="flex items-center gap-3 w-full bg-slate-900 border border-slate-800 hover:border-green-500 p-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center font-bold text-white shrink-0">
+            UPI
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-bold text-white">Default UPI App Chooser</p>
+            <p className="text-[10px] text-slate-400">Let system choose available UPI apps</p>
+          </div>
+        </button>
+      </div>
+
+      <div className="space-y-4 shrink-0">
+        <button
+          onClick={() => setCurrentStep('confirm')}
+          className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl border border-slate-800 text-xs shadow-md transition-colors"
+        >
+          BACK TO DETAILS
+        </button>
       </div>
     </div>
   )
 
   const renderSuccessStep = () => (
-    <div className="flex-1 bg-black flex items-center justify-center p-6">
-      <div className="text-center">
-        <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Check className="w-12 h-12 text-green-500" />
+    <div className="flex-1 bg-slate-900 flex flex-col justify-center items-center p-6 text-center">
+      <div className="space-y-6 max-w-sm w-full flex flex-col items-center">
+        
+        {/* Animated green check ring */}
+        <div className="w-20 h-20 bg-green-500/10 border-2 border-green-500 rounded-full flex items-center justify-center text-green-500 animate-scale-up">
+          <Check className="w-10 h-10 stroke-[3.5]" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">
-          {isAndroid() ? 'Payment Initiated' : 'Transaction Recorded'}
-        </h2>
-        <p className="text-gray-300 mb-4">
-          {isAndroid() ? 'Redirecting to UPI app...' : 'Transaction has been recorded successfully'}
-        </p>
-        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-          <p className="text-white font-semibold">₹{amount}</p>
-          <p className="text-gray-400 text-sm">
-            to {scannedData?.pn} • {categoryNames[selectedCategory]}
+
+        <div className="space-y-1">
+          <h2 className="text-xl font-black text-white">Payment Successful</h2>
+          <p className="text-slate-400 text-xs font-semibold">Rupees paid successfully</p>
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 w-full space-y-1 text-center">
+          <p className="text-2xl font-black text-white font-mono">₹{parseFloat(amount).toLocaleString()}</p>
+          <p className="text-xs text-slate-300">
+            to {scannedData?.pn || 'Merchant Store'}
+          </p>
+          <p className="text-[10px] text-primary/80 font-semibold tracking-wider uppercase mt-1">
+            {categoryNames[selectedCategory]}
+          </p>
+          <p className="text-[10px] text-slate-500 pt-2 font-mono border-t border-white/5 mt-2">
+            Transaction ID: UPIS-TX-98402
           </p>
         </div>
+        
+        <p className="text-xs text-slate-400 font-medium">Redirecting you to dashboard...</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      <div className="flex items-center gap-4 p-4 bg-black/80 backdrop-blur-sm border-b border-white/10">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex items-center gap-4 p-4 bg-[#5f259f] text-white shrink-0 shadow-sm relative z-30">
         <button
           onClick={handleBack}
-          className="text-white hover:text-gray-300 transition-colors"
+          className="text-white hover:text-white/80 transition-colors"
           aria-label="Go back"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-white">
+          <h1 className="text-sm font-black uppercase tracking-wider">
             {currentStep === 'scanning' && 'Scan QR Code'}
-            {currentStep === 'confirm' && 'Confirm Payment'}
-            {currentStep === 'success' && 'Success'}
+            {currentStep === 'confirm' && 'Confirm Details'}
+            {currentStep === 'pin' && 'Enter UPI PIN'}
+            {currentStep === 'success' && 'Payment Status'}
           </h1>
-          <p className="text-xs text-gray-400">
-            {currentStep === 'scanning' && 'Position the UPI QR code in frame'}
-            {currentStep === 'confirm' && 'Review and confirm payment'}
-            {currentStep === 'success' && 'Payment processing'}
+          <p className="text-[10px] text-white/70 font-medium">
+            {currentStep === 'scanning' && 'Point camera at any UPI QR code'}
+            {currentStep === 'confirm' && 'Review and tag before paying'}
+            {currentStep === 'pin' && 'Secure connection with SBI'}
+            {currentStep === 'success' && 'Transfer completed'}
           </p>
         </div>
       </div>
 
-      {currentStep === 'scanning' && renderScanningStep()}
-      {currentStep === 'confirm' && renderConfirmStep()}
-      {currentStep === 'success' && renderSuccessStep()}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {currentStep === 'scanning' && renderScanningStep()}
+        {currentStep === 'confirm' && renderConfirmStep()}
+        {currentStep === 'pin' && renderPinStep()}
+        {currentStep === 'success' && renderSuccessStep()}
+      </div>
 
       <Dialog open={showInvalidQRDialog} onOpenChange={setShowInvalidQRDialog}>
-        <DialogContent className="bg-gray-900 border-gray-800 text-white">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white rounded-3xl w-[90%] sm:max-w-md">
           <DialogHeader>
-            <div className="bg-red-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="bg-red-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/10">
               <Image className="w-6 h-6 text-red-500" />
             </div>
-            <DialogTitle className="text-center">Invalid QR Code</DialogTitle>
-            <DialogDescription className="text-center text-gray-400">
+            <DialogTitle className="text-center font-black">Invalid QR Code</DialogTitle>
+            <DialogDescription className="text-center text-slate-400 text-xs">
               {invalidQRMessage}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               onClick={() => setShowInvalidQRDialog(false)}
-              className="w-full bg-primary text-black hover:bg-primary/90"
+              className="w-full bg-[#5f259f] hover:bg-[#4d1d82] text-white font-bold rounded-xl py-3 border-none shadow-sm"
             >
               Try Again
             </Button>

@@ -31,42 +31,65 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center px-4">
-      <div className="w-full max-w-md pt-8 pb-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <img
-            src="/icon.svg"
-            alt="Icon"
-            className="w-20 h-20 mx-auto mb-4"
-          />
-
-          <h1 className="text-3xl font-bold text-foreground mb-2">UPISensei</h1>
-          <p className="text-muted-foreground">Your Financial Wisdom Guide</p>
+    <div className="flex-1 flex flex-col bg-background">
+      {/* Upper Purple Brand Header */}
+      <div className="bg-[#5f259f] px-6 pt-12 pb-16 text-white relative rounded-b-[40px] shadow-lg shrink-0 overflow-hidden">
+        {/* Subtle background circles for depth */}
+        <div className="absolute top-[-10%] right-[-10%] w-48 h-48 bg-white/10 rounded-full blur-xl pointer-events-none" />
+        <div className="absolute bottom-[-30%] left-[-10%] w-56 h-56 bg-accent/20 rounded-full blur-2xl pointer-events-none" />
+        
+        <div className="relative flex flex-col items-center text-center">
+          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl mb-4 border-2 border-white/20 animate-bounce-subtle">
+            <img
+              src="/icon.svg"
+              alt="UPISensei Logo"
+              className="w-14 h-14 object-contain"
+              onError={(e) => {
+                // Fallback emoji if icon doesn't load
+                (e.target as HTMLElement).style.display = 'none';
+                const parent = (e.target as HTMLElement).parentElement;
+                if (parent) {
+                  const span = document.createElement('span');
+                  span.className = 'text-4xl';
+                  span.innerText = '💳';
+                  parent.appendChild(span);
+                }
+              }}
+            />
+          </div>
+          <h1 className="text-3xl font-black tracking-tight drop-shadow-md">UPISensei</h1>
+          <p className="text-white/80 text-sm mt-1 font-medium">Your AI-Driven UPI Spend Intelligence Guide</p>
         </div>
+      </div>
 
-        {/* Login Form */}
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-lg">
-          <h2 className="text-2xl font-bold mb-6 text-foreground">Welcome Back</h2>
+      {/* Form Content Area */}
+      <div className="flex-1 px-6 pt-6 pb-8 flex flex-col justify-between -translate-y-8">
+        <div className="bg-card border border-border/80 rounded-3xl p-6 shadow-xl space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-black text-foreground">Welcome Back</h2>
+            <p className="text-muted-foreground text-xs font-medium">Enter your credentials to secure your session</p>
+          </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Email Address
               </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                required
-              />
+              <div className="relative">
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full px-4 py-3.5 rounded-xl border border-border bg-muted/30 text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-medium"
+                  required
+                />
+              </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Password
               </label>
               <input
@@ -74,14 +97,14 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                placeholder="••••••••"
+                className="w-full px-4 py-3.5 rounded-xl border border-border bg-muted/30 text-foreground placeholder-muted-foreground/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-medium"
                 required
               />
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+              <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-xs font-medium text-destructive leading-relaxed">
                 {error}
               </div>
             )}
@@ -89,32 +112,37 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full py-2 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold rounded-lg hover:shadow-lg transition-all duration-300"
+              className="w-full py-4 mt-2 bg-[#5f259f] hover:bg-[#4d1d82] text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Verifying Account...' : 'PROCEED SECURELY'}
             </Button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-sm text-muted-foreground text-center mb-4">
-              Don't have an account?
-            </p>
-            <Link href="/signup">
-              <Button
-                variant="outline"
-                className="w-full"
-              >
-                Create Account
-              </Button>
-            </Link>
+          {/* Quick Demo Assist */}
+          <div className="p-3.5 rounded-2xl bg-secondary border border-secondary-foreground/10 flex items-start gap-3">
+            <span className="text-xl">💡</span>
+            <div>
+              <p className="text-xs font-bold text-secondary-foreground">Sensei Sandbox Demo Account</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-medium leading-normal">
+                Email: <span className="font-bold font-mono text-secondary-foreground select-all">demo@upisensei.com</span>
+                <br />
+                Password: <span className="font-bold font-mono text-secondary-foreground select-all">demo123</span>
+              </p>
+            </div>
           </div>
+        </div>
 
-          {/* Demo Credentials Info */}
-          <div className="mt-4 p-3 rounded-lg bg-secondary/20 border border-secondary/50">
-            <p className="text-xs font-medium text-foreground mb-2">Demo Credentials:</p>
-            <p className="text-xs text-muted-foreground">Email: demo@upisensei.com</p>
-            <p className="text-xs text-muted-foreground">Password: demo123</p>
-          </div>
+        {/* Create Account Link */}
+        <div className="text-center space-y-3 mt-6">
+          <p className="text-xs text-muted-foreground font-medium">New to UPISensei?</p>
+          <Link href="/signup" className="block w-full">
+            <Button
+              variant="outline"
+              className="w-full py-3.5 rounded-2xl border-primary/30 hover:border-primary text-primary font-bold hover:bg-primary/5 transition-all"
+            >
+              CREATE NEW ACCOUNT
+            </Button>
+          </Link>
         </div>
       </div>
     </div>

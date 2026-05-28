@@ -41,7 +41,7 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
     try {
       const devices = await navigator.mediaDevices.enumerateDevices()
       const hasCamera = devices.some(device => device.kind === 'videoinput')
-      
+
       if (!hasCamera) {
         setIsSupported(false)
         alert('No camera found on this device.')
@@ -53,7 +53,7 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
         const proceed = confirm('UPI payments work best on Android devices. You can still scan and record transactions. Continue?')
         if (!proceed) return
       }
-      
+
       setShowCategorySelector(true)
     } catch (error) {
       console.log("[v0] Camera access error:", error)
@@ -76,9 +76,8 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
         <div className="max-w-4xl mx-auto flex items-center justify-around">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
-              activeTab === 'dashboard' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${activeTab === 'dashboard' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
             {activeTab === 'dashboard' && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />
@@ -101,9 +100,8 @@ export default function Navigation({ activeTab, setActiveTab }: NavigationProps)
 
           <button
             onClick={() => setActiveTab('menu')}
-            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${
-              activeTab === 'menu' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 transition-colors relative ${activeTab === 'menu' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
             {activeTab === 'menu' && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-b-full" />

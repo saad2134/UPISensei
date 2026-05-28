@@ -199,44 +199,46 @@ export default function AIChatbot() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-background to-card/30">
+    <div className="flex flex-col flex-1 min-h-0 bg-gradient-to-b from-background to-card/30">
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map(message => (
-          <div
-            key={message.id}
-            className={cn(
-              'flex gap-3 animate-slide-in',
-              message.type === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col">
+        <div className="mt-auto space-y-4 flex flex-col w-full">
+          {messages.map(message => (
             <div
+              key={message.id}
               className={cn(
-                'max-w-xs lg:max-w-md px-4 py-3 rounded-lg',
-                message.type === 'user'
-                  ? 'bg-primary text-primary-foreground rounded-br-none'
-                  : 'bg-muted text-foreground rounded-bl-none'
+                'flex gap-3 animate-slide-in',
+                message.type === 'user' ? 'justify-end' : 'justify-start'
               )}
             >
-              {message.type === 'assistant' ? (
-                <MarkdownContent content={message.content} />
-              ) : (
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-              )}
-              <span className="text-xs opacity-70 mt-1 block">
-                {formatTimestamp(message.timestamp)}
-              </span>
+              <div
+                className={cn(
+                  'max-w-xs lg:max-w-md px-4 py-3 rounded-lg',
+                  message.type === 'user'
+                    ? 'bg-primary text-primary-foreground rounded-br-none'
+                    : 'bg-muted text-foreground rounded-bl-none'
+                )}
+              >
+                {message.type === 'assistant' ? (
+                  <MarkdownContent content={message.content} />
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                )}
+                <span className="text-xs opacity-70 mt-1 block">
+                  {formatTimestamp(message.timestamp)}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex gap-3 justify-start">
-            <div className="bg-muted text-foreground px-4 py-3 rounded-lg rounded-bl-none flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Thinking...</span>
+          ))}
+          {isLoading && (
+            <div className="flex gap-3 justify-start">
+              <div className="bg-muted text-foreground px-4 py-3 rounded-lg rounded-bl-none flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Thinking...</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
         <div ref={messagesEndRef} />
       </div>
 
@@ -275,7 +277,7 @@ export default function AIChatbot() {
       )}
 
       {/* Input Area */}
-      <div className="border-t border-border/50 bg-card/50 p-4 space-y-3">
+      <div className="border-t border-border/50 bg-card/50 p-4 space-y-3 pb-10">
         <form onSubmit={handleSendMessage} className="space-y-3">
           <div className="flex gap-2">
             <input

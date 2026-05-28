@@ -40,7 +40,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
       </head>
-      <body className={`font-sans antialiased`}>
+      <body className="font-sans antialiased bg-background text-foreground overflow-x-hidden">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -48,7 +48,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
+            <div className="w-full min-h-screen flex flex-col bg-background">
+              {children}
+            </div>
             <Analytics />
           </AuthProvider>
         </ThemeProvider>
