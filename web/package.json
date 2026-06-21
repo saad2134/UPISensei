@@ -46,7 +46,7 @@
     "csv-parse": "^5.5.6",
     "date-fns": "4.1.0",
     "embla-carousel-react": "latest",
-    "form-data": "^4.0.5",
+    "form-data": "^4.0.6",
     "input-otp": "latest",
     "jsqr": "^1.4.0",
     "lucide-react": "^0.454.0",
