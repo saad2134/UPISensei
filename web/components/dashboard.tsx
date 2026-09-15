@@ -100,7 +100,12 @@ export default function Dashboard() {
   const handleLaunchUPIApp = (appScheme: string) => {
     // Save transaction to local storage
     const amountNum = parseFloat(transferAmount) || 0
-    const upiId = transferType === 'recharge' ? 'recharge@upi' : transferTarget.includes('@') ? transferTarget : `${transferTarget}@upi`
+    const safeTransferTarget = transferTarget.trim().replace(/[^a-zA-Z0-9@._+\-\s]/g, '')
+    const upiId = transferType === 'recharge'
+      ? 'recharge@upi'
+      : safeTransferTarget.includes('@')
+        ? safeTransferTarget
+        : `${safeTransferTarget}@upi`
     const transaction = {
       id: Date.now(),
       type: transferType === 'recharge' ? 'sent' : 'sent',
@@ -120,7 +125,7 @@ export default function Dashboard() {
     localStorage.setItem('scan_transactions', JSON.stringify(txs))
 
     // Construct deep link URL
-    const queryParams = `pa=${upiId}&pn=${encodeURIComponent(transaction.name)}&am=${amountNum}&cu=INR&tn=${encodeURIComponent('UPISensei Transfer')}`
+    const queryParams = `pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(transaction.name)}&am=${encodeURIComponent(amountNum.toString())}&cu=${encodeURIComponent('INR')}&tn=${encodeURIComponent('UPISensei Transfer')}`
     let deepLink = ''
     if (appScheme === 'gpay') {
       deepLink = `tez://upi/pay?${queryParams}`
