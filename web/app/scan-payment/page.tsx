@@ -539,20 +539,33 @@ export default function ScanPaymentPage() {
     const pa = scannedData?.pa || '';
     const pn = scannedData?.pn || 'Merchant';
     const am = amount;
-    const cu = scannedData?.cu || 'INR';
+    const cu = (scannedData?.cu || 'INR').toUpperCase();
     const tn = scannedData?.tn || 'Payment';
-    
-    const queryParams = `pa=${pa}&pn=${encodeURIComponent(pn)}&am=${am}&cu=${cu}&tn=${encodeURIComponent(tn)}`;
-    let deepLink = '';
-    if (appScheme === 'gpay') {
-      deepLink = `tez://upi/pay?${queryParams}`;
-    } else if (appScheme === 'phonepe') {
-      deepLink = `phonepe://pay?${queryParams}`;
-    } else if (appScheme === 'paytm') {
-      deepLink = `paytmmp://pay?${queryParams}`;
-    } else {
-      deepLink = `upi://pay?${queryParams}`;
+
+    // Validate and normalize untrusted input before building deep link
+    const normalizedAmount = amount.trim();
+    if (!/^\d+$/.test(normalizedAmount) || Number(normalizedAmount) <= 0) {
+      setCameraError('Please enter a valid amount.');
+      return;
     }
+
+    const schemePrefixMap: Record<string, string> = {
+      gpay: 'tez://upi/pay?',
+      phonepe: 'phonepe://pay?',
+      paytm: 'paytmmp://pay?',
+      upi: 'upi://pay?',
+    };
+
+    const deepLinkBase = schemePrefixMap[appScheme] || schemePrefixMap.upi;
+    const queryParams = new URLSearchParams({
+      pa: String(pa || '').trim(),
+      pn: String(pn || '').trim(),
+      am: normalizedAmount,
+      cu: cu,
+      tn: String(tn || '').trim(),
+    }).toString();
+
+    const deepLink = `${deepLinkBase}${queryParams}`;
 
     // Trigger Speech synthesis for deep linking launch
     try {
